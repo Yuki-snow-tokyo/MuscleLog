@@ -255,6 +255,18 @@ input.plain:focus,select.plain:focus,textarea.plain:focus{outline:none;border-co
 .menu-li input[type=checkbox]{width:22px;height:22px;margin-top:2px;accent-color:var(--accent);flex:none}
 select.plain.menu-part{width:auto;min-width:120px;height:36px;font-size:14px;padding:0 8px}
 .menu-partrow{display:flex;align-items:center;gap:8px;margin-top:6px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700;color:var(--ink-2);letter-spacing:.06em;margin:14px 2px 8px}
+.sec-h .num{font-size:18px;color:var(--ink-2)}.sec-h .num.ok{color:var(--good)}
+.entry.prep{border-top:4px solid var(--ink-3);padding-bottom:12px}
+.entry.prep.done{border-top-color:var(--good)}
+.entry.prep .meta b{color:var(--ink);font-size:14px}
+.chk-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chk{height:44px;min-width:84px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--surface-2);font-weight:700;font-size:14px;color:var(--ink)}
+.chk[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:#fff}
+.chk.add{min-width:44px;color:var(--ink-2);border-style:dashed}
+.assist-row{display:flex;align-items:center;gap:8px;margin:-2px 0 4px 32px;font-size:12.5px;color:var(--warn);flex-wrap:wrap}
+.assist-row .field{width:80px}.assist-row .field input{height:36px;font-size:18px;border-color:var(--warn)}
+.assist-row .grow{min-width:120px;flex:1}
 /* coach report */
 .rep-ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .rep-ctl label{display:flex;flex-direction:column;gap:4px}
@@ -619,8 +631,8 @@ function lastPartDate(pid){
 }
 function dayStats(date){
   const day=D.logs[date];let sets=0,vol=0;const parts=new Set();
-  (day?.e||[]).forEach(en=>{const ex=exById(en.ex);if(ex)parts.add(ex.partId);en.sets.forEach(s=>{if(s.r!==''&&s.r!=null){sets++;vol+=(+s.w||0)*(+s.r||0)}})});
-  return {n:day?.e.length||0,sets,vol,parts:[...parts]};
+  let n=0;(day?.e||[]).forEach(en=>{const ex=exById(en.ex);if(isPrep(ex))return;n++;if(ex)parts.add(ex.partId);en.sets.forEach(s=>{if(s.r!==''&&s.r!=null){sets++;vol+=(+s.w||0)*(+s.r||0)}})});
+  return {n,sets,vol,parts:[...parts]};
 }
 function getDay(date,create){if(!D.logs[date]&&create)D.logs[date]={e:[],memo:''};return D.logs[date]}
 function cleanDay(date){const d=D.logs[date];if(d&&!d.e.length&&!d.memo)delete D.logs[date]}
@@ -649,7 +661,11 @@ function viewRecord(){
     const prev=prevDayWithLog(date);
     h+=`<div class="empty"><b>${isToday?'今日の記録はまだありません':'この日の記録はありません'}</b>種目を追加するか、前回のメニューをコピーして始めましょう${prev?`<br><span class="small">前回：${md(prev)}（${rel(prev)}）${dayStats(prev).parts.map(p=>esc(partById(p)?.name)).join('・')}</span>`:''}</div>`;
   }
-  h+=`<div class="entries">${ents.map((en,i)=>entryHTML(en,i,date)).join('')}</div>`;
+  const pEnts=ents.filter(en=>isPrep(exById(en.ex))),mEnts=ents.filter(en=>!isPrep(exById(en.ex)));
+  if(pEnts.length){const tot=pEnts.reduce((a,en)=>a+(en.chk||[]).length,0),dn=pEnts.reduce((a,en)=>a+(en.chk||[]).filter(Boolean).length,0);
+    h+=`<h2 class="sec-h"><span>プレパレーション</span><span class="num${dn===tot&&tot?' ok':''}">${dn}/${tot}</span></h2><div class="entries">${pEnts.map((en,i)=>prepHTML(en)).join('')}</div>`;
+    if(mEnts.length)h+=`<h2 class="sec-h"><span>トレーニング</span></h2>`}
+  h+=`<div class="entries">${mEnts.map((en,i)=>entryHTML(en,i,date)).join('')}</div>`;
   h+=`<div class="actions">
     <button class="btn primary" data-act="openAdd">${I.plus}種目を追加</button>
     <button class="btn" data-act="copyPrev">${I.copy}前回をコピー</button>
@@ -666,6 +682,13 @@ function viewRecord(){
 }
 function prevDayWithLog(date){const ds=sortedDates().filter(d=>d<date&&D.logs[d].e.length);return ds.at(-1)||null}
 
+function prepHTML(en){
+  const ex=exById(en.ex);if(!ex)return '';const chk=en.chk||[false];const all=chk.every(Boolean);
+  return `<article class="entry prep${all?' done':''}" id="e-${en.id}"><div class="entry-head">${en.no?`<span class="no-badge num">${esc(en.no)}</span>`:''}<h3>${esc(ex.name)}</h3><button class="icon-btn" data-act="entryMenu" data-id="${en.id}" aria-label="メニュー">${I.more}</button></div>
+    <div class="meta">${ex.rx?`<span><b>${esc(ex.rx)}</b></span>`:''}${vids(ex).length?vidLinks(ex):`<button class="linkish" data-act="editEx" data-id="${ex.id}">動画リンクを登録</button>`}</div>
+    ${ex.memo?`<div class="small muted" style="margin-top:4px">${esc(ex.memo)}</div>`:''}
+    <div class="chk-row">${chk.map((c,i)=>`<button class="chk" data-act="chk" data-id="${en.id}" data-i="${i}" aria-pressed="${!!c}">${c?'✓ ':''}${chk.length>1?(i+1)+'セット目':'完了'}</button>`).join('')}<button class="chk add" data-act="chkAdd" data-id="${en.id}" aria-label="チェックを追加">${I.plus.replace('<svg','<svg width="16" height="16"')}</button></div></article>`;
+}
 function entryHTML(en,idx,date){
   const ex=exById(en.ex);if(!ex)return '';
   const p=partById(ex.partId),last=lastRecord(ex.id,date);
@@ -680,7 +703,7 @@ function entryHTML(en,idx,date){
   if(ex.rx)h+=`<div class="small" style="margin-top:4px"><span class="muted">トレーナー指定</span> <b>${esc(ex.rx)}</b></div>`;
   if(ex.memo&&ex.type!=='cardio')h+=`<div class="small muted" style="margin-top:4px">${esc(ex.memo)}</div>`;
   if(last){
-    const txt=ex.type==='cardio'?cardioText(last.en.c):last.en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${s.a?'<span class="small">補</span>':''}`).join(' / ');
+    const txt=ex.type==='cardio'?cardioText(last.en.c):last.en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${(s.a?'<span class="small">補'+(s.aw?fw(s.aw):'')+'</span>':'')}`).join(' / ');
     h+=`<div class="last">前回 ${md(last.date)}（${rel(last.date)}）　${txt}</div>`;
   }
   if(ex.type==='cardio'){
@@ -698,10 +721,10 @@ function entryHTML(en,idx,date){
         <span class="no">${hit?'✓':i+1}</span>
         <span class="field"><input id="w-${en.id}-${i}" data-f="w" data-id="${en.id}" data-i="${i}" inputmode="decimal" value="${esc(fw(s.w))}" aria-label="${i+1}セット目の重量"></span>
         <span class="field"><input id="r-${en.id}-${i}" data-f="r" data-id="${en.id}" data-i="${i}" inputmode="numeric" value="${esc(s.r??'')}" aria-label="${i+1}セット目の回数"></span>
-        <button class="tog" data-act="assist" data-id="${en.id}" data-i="${i}" aria-pressed="${!!s.a}">補助</button>
+        <button class="tog" id="tg-${en.id}-${i}" data-act="assist" data-id="${en.id}" data-i="${i}" aria-pressed="${!!s.a}">${s.a&&s.aw?'補'+fw(s.aw):'補助'}</button>
         <span class="rm num" id="rm-${en.id}-${i}">${rmCell(s,isPR&&i===bestI)}</span>
         <button class="del" data-act="delSet" data-id="${en.id}" data-i="${i}" aria-label="${i+1}セット目を削除">${I.x}</button>
-      </div>`;
+      </div>${s.a?`<div class="assist-row"><span>アシスト重量</span><span class="field"><input id="aw-${en.id}-${i}" data-f="aw" data-id="${en.id}" data-i="${i}" inputmode="decimal" value="${esc(fw(s.aw))}" placeholder="—" aria-label="${i+1}セット目のアシスト重量"></span><span>${U()}</span>${s.aw?'':'<span class="small muted grow">マシンやバンドの補助。人の補助なら空欄</span>'}</div>`:''}`;
     });
     h+=`</div><div class="entry-foot"><button class="btn grow" data-act="addSet" data-id="${en.id}">${I.plus}セット</button>${(ex.tw!=null||ex.tr!=null)?`<button class="btn ghost" data-act="fillTarget" data-id="${en.id}">目標値で入力</button>`:''}</div>`;
   }
@@ -738,7 +761,7 @@ function viewAna(){
   const isBody=st.ax==='body',ex=isBody?null:exById(st.ax);if(!isBody&&!ex){st.ax='body';return viewAna()}
   const cardio=ex?.type==='cardio',M=cardio?CMETRICS:METRICS;if(!isBody&&!M[st.am])st.am=Object.keys(M)[0];
   let h=`<header class="top"><h1>分析</h1></header>`;
-  h+=`<select class="plain" id="ax" data-f="ax" aria-label="種目"><option value="body"${isBody?' selected':''}>体重</option>${D.parts.map(p=>{const xs=D.exercises.filter(e=>e.partId===p.id);return xs.length?`<optgroup label="${esc(p.name)}">${xs.map(e=>`<option value="${e.id}"${e.id===st.ax?' selected':''}>${esc(e.name)}</option>`).join('')}</optgroup>`:''}).join('')}</select>`;
+  h+=`<select class="plain" id="ax" data-f="ax" aria-label="種目"><option value="body"${isBody?' selected':''}>体重</option>${D.parts.map(p=>{const xs=D.exercises.filter(e=>e.partId===p.id&&!isPrep(e));return xs.length?`<optgroup label="${esc(p.name)}">${xs.map(e=>`<option value="${e.id}"${e.id===st.ax?' selected':''}>${esc(e.name)}</option>`).join('')}</optgroup>`:''}).join('')}</select>`;
   if(!isBody)h+=`<div class="seg" style="margin-top:10px">${Object.entries(M).map(([k,l])=>`<button data-act="am" data-v="${k}" aria-pressed="${st.am===k}">${l}</button>`).join('')}</div>`;
   h+=`<div class="seg" style="margin-top:8px">${[[30,'1か月'],[90,'3か月'],[365,'1年'],[0,'全期間']].map(([v,l])=>`<button data-act="ar" data-v="${v}" aria-pressed="${st.ar===v}">${l}</button>`).join('')}</div>`;
   const from=st.ar?addDays(todayStr(),-st.ar):'0000';
@@ -764,7 +787,7 @@ function viewAna(){
   }
   if(!isBody){
     h+=`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">${vidLinks(ex)}<button class="linkish" data-act="editEx" data-id="${ex.id}">目標・動画を編集</button></div>`;
-    h+=`<section class="section hist"><h2>履歴</h2>${hist.length?`<div class="list">${hist.slice().reverse().map(({d,en})=>`<button class="li" data-act="calDay" data-d="${d}"><div class="grow"><div class="s">${md(d)}（${WD[parseDate(d).getDay()]}）・${rel(d)}</div><div class="t">${cardio?cardioText(en.c):en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${s.a?'<span class="small muted">補</span>':''}`).join('　')}</div>${en.memo?`<div class="s">${esc(en.memo)}</div>`:''}</div>${cardio?'':`<span class="small muted num" style="font-size:14px">${fvol(en.sets.reduce((a,s)=>a+(+s.w||0)*(+s.r||0),0))}${U()}</span>`}</button>`).join('')}</div>`:'<div class="empty">まだ記録がありません</div>'}</section>`;
+    h+=`<section class="section hist"><h2>履歴</h2>${hist.length?`<div class="list">${hist.slice().reverse().map(({d,en})=>`<button class="li" data-act="calDay" data-d="${d}"><div class="grow"><div class="s">${md(d)}（${WD[parseDate(d).getDay()]}）・${rel(d)}</div><div class="t">${cardio?cardioText(en.c):en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${s.a?'<span class="small muted">補'+(s.aw?fw(s.aw):'')+'</span>':''}`).join('　')}</div>${en.memo?`<div class="s">${esc(en.memo)}</div>`:''}</div>${cardio?'':`<span class="small muted num" style="font-size:14px">${fvol(en.sets.reduce((a,s)=>a+(+s.w||0)*(+s.r||0),0))}${U()}</span>`}</button>`).join('')}</div>`:'<div class="empty">まだ記録がありません</div>'}</section>`;
   }
   return h;
 }
@@ -797,7 +820,7 @@ function viewEx(){
       <button class="icon-btn" style="width:32px;height:32px" data-act="movePart" data-id="${p.id}" data-n="-1" aria-label="部位を上へ"${pi===0?' disabled':''}>${I.up}</button>
       <button class="icon-btn" style="width:32px;height:32px" data-act="movePart" data-id="${p.id}" data-n="1" aria-label="部位を下へ"${pi===D.parts.length-1?' disabled':''}>${I.down}</button>
       <button class="linkish" data-act="editPart" data-id="${p.id}">編集</button></div>
-      <div class="list">${xs.map((e,i)=>`<div class="li"><button class="grow" style="text-align:left" data-act="editEx" data-id="${e.id}"><div class="t">${esc(e.name)} ${vids(e).length?`<span style="color:var(--pr);display:inline-flex;align-items:center;gap:1px;vertical-align:-2px;font-size:12px;font-weight:700">${I.play.replace('<svg','<svg width="14" height="14"')}${vids(e).length>1?vids(e).length:''}</span>`:''}</div><div class="s">${e.type==='cardio'?'有酸素':targetText(e)}</div></button>
+      <div class="list">${xs.map((e,i)=>`<div class="li"><button class="grow" style="text-align:left" data-act="editEx" data-id="${e.id}"><div class="t">${esc(e.name)} ${vids(e).length?`<span style="color:var(--pr);display:inline-flex;align-items:center;gap:1px;vertical-align:-2px;font-size:12px;font-weight:700">${I.play.replace('<svg','<svg width="14" height="14"')}${vids(e).length>1?vids(e).length:''}</span>`:''}</div><div class="s">${e.type==='cardio'?'有酸素':isPrep(e)?esc(e.rx||'プレパレーション'):targetText(e)}</div></button>
         <button class="icon-btn" style="width:32px;height:32px" data-act="moveEx" data-id="${e.id}" data-n="-1" aria-label="上へ"${i===0?' disabled':''}>${I.up}</button>
         <button class="icon-btn" style="width:32px;height:32px" data-act="moveEx" data-id="${e.id}" data-n="1" aria-label="下へ"${i===xs.length-1?' disabled':''}>${I.down}</button></div>`).join('')}
         <button class="li" data-act="newEx" data-id="${p.id}" style="color:var(--accent);font-weight:700">${I.plus.replace('<svg','<svg width="18" height="18"')} 種目を追加</button></div></section>`;
@@ -826,6 +849,8 @@ function viewTools(){
     <div class="switch"><span>画面の明るさ</span><div class="seg" style="width:210px">${[['auto','自動'],['light','ライト'],['dark','ダーク']].map(([v,l])=>`<button data-act="theme" data-v="${v}" aria-pressed="${(lsGet('kintore-theme')||'auto')===v}">${l}</button>`).join('')}</div></div>
     <div class="switch"><span>重量の単位</span><div class="seg" style="width:140px"><button data-act="unit" data-v="kg" aria-pressed="${U()==='kg'}">kg</button><button data-act="unit" data-v="lb" aria-pressed="${U()==='lb'}">lb</button></div></div>
     <div class="switch"><span>インターバル（秒）</span><input class="plain num" id="rest" data-f="rest" inputmode="numeric" value="${D.settings.rest}"></div>
+    <div class="switch"><span>タイマーの音量</span><div class="row" style="gap:6px"><div class="seg" style="width:150px">${[['s','小'],['m','中'],['l','大']].map(([v,l])=>`<button data-act="vol" data-v="${v}" aria-pressed="${(D.settings.vol||'l')===v}">${l}</button>`).join('')}</div><button class="btn ghost" style="height:34px;padding:0 10px" data-act="volTest">試す</button></div></div>
+    <label class="switch"><span>マナーモード中も音を鳴らす<br><span class="small muted">iPhone向け。再生中の音楽が止まることがあります</span></span><input type="checkbox" id="loudM" data-f="loudM"${D.settings.loudMode?' checked':''}></label>
     <label class="switch"><span>カウントアップで1秒ごとに音を鳴らす<br><span class="small muted">10秒ごとに少し高い音</span></span><input type="checkbox" id="tickS" data-f="tickS"${D.settings.tickSound!==false?' checked':''}></label>
     <label class="switch"><span>セット追加でタイマーを自動開始</span><input type="checkbox" id="autoT" data-f="autoT"${D.settings.autoTimer?' checked':''}></label>
   </div></section>`;
@@ -867,6 +892,40 @@ function menuCells(text,html){
   if(n>=3){const rows=[];for(let i=0;i<lines.length;i+=n)rows.push(lines.slice(i,i+n).map(cell));return rows}
   return lines.map(l=>l.split(/\s{2,}|,|、/).map(cell));
 }
+const isPrep=ex=>ex&&ex.type==='prep';
+const PREP_HEAD=/プレパレーション|ウォームアップ|ウォーミングアップ|warm-?\s?up|preparation|準備運動/i;
+function prepItem(raw,href,linkText){
+  let t=String(raw||'').replace(/\*\*|__/g,'').replace(/^[\s*\-・•●◦▪︎]+/,'').replace(/[\s\u3000]+/g,' ').trim();
+  let name='',rest='';
+  const m=t.match(/\[([^\]]+)\]\((https?:[^)\s]+)\)/);
+  if(m){href=href||m[2];name=(t.slice(0,m.index)+m[1]).trim();rest=t.slice(m.index+m[0].length)}
+  else if(linkText&&t.includes(linkText.trim())){const lt=linkText.replace(/\*\*/g,'').replace(/[\s\u3000]+/g,' ').trim(),i=t.indexOf(lt);name=(t.slice(0,i)+lt).trim();rest=t.slice(i+lt.length)}
+  else{const k=t.normalize('NFKC').match(/^(.*?)\s*(\d+\s*(?:秒|回|セット|sets?|分|reps?|往復|歩|m\b).*)$/i);if(k&&k[1].trim()){name=k[1].trim();rest=k[2]}else{name=t;rest=''}}
+  rest=rest.normalize('NFKC').trim();name=name.trim();if(!name)return null;
+  const rn=rest.match(/(\d+)\s*(?:回|reps?)/i),sn=rest.match(/(\d+)\s*(?:セット|sets?)/i);
+  const exist=D.exercises.find(e=>e.name.trim().toLowerCase()===name.toLowerCase());
+  return {kind:'prep',on:true,no:'',name,href:href||'',tw:null,tr:rn?+rn[1]:null,ts:sn?+sn[1]:null,rx:rest,partId:prepPartId(false),exist:!!exist};
+}
+function prepPartId(create){let p=D.parts.find(x=>PREP_HEAD.test(x.name));if(!p&&create){p={id:uid(),name:'プレパレーション',color:'#6B7280'};D.parts.unshift(p)}return p?p.id:'__prep'}
+function parseMenuAll(text,html){
+  const prep=[];let tText=text,tHtml=html;
+  if(html&&/<li[\s>]/i.test(html)){
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    doc.querySelectorAll('li').forEach(li=>{if(li.closest('table'))return;const a=li.querySelector('a[href^="http"]');const it=prepItem(li.textContent,a?a.getAttribute('href'):'',a?a.textContent:'');if(it)prep.push(it);li.remove()});
+    tHtml=/<t[dh][\s>]/i.test(html)?doc.body.innerHTML:'';
+    tText=tHtml?doc.body.innerText||doc.body.textContent:'';
+  }else{
+    const lines=String(text||'').replace(/\r/g,'').split('\n');
+    const bullet=/^\s*([*\-・•●◦▪︎]|\d+[.)])\s+/;
+    if(lines.some(l=>bullet.test(l))){
+      const keep=[];lines.forEach(l=>{if(bullet.test(l)){const it=prepItem(l.replace(bullet,''));if(it)prep.push(it)}else keep.push(l)});
+      const rest=keep.filter(l=>l.trim()&&!PREP_HEAD.test(l.trim()));
+      tText=rest.some(l=>l.includes('\t')||l.trim().startsWith('|'))||rest.some(l=>HDR.name.test(l))?rest.join('\n'):'';
+    }
+  }
+  const main=(tText||tHtml)?parseMenu(tText,tHtml).map(r=>({...r,kind:'main'})):[];
+  return [...prep,...main.filter(r=>!PREP_HEAD.test(r.name))];
+}
 function parseMenu(text,html){
   const rows=menuCells(text,html);let col=null,start=0;
   for(let i=0;i<Math.min(rows.length,3);i++){const r=rows[i],ni=r.findIndex(c=>HDR.name.test(c.t)&&c.t.length<12);
@@ -884,33 +943,44 @@ function parseMenu(text,html){
   }
   return out;
 }
+function menuRowHTML(r,i){
+  const prep=r.kind==='prep';
+  return `<div class="li menu-li"><input type="checkbox" id="mi${i}" data-f="menuOn" data-i="${i}"${r.on?' checked':''} aria-label="${esc(r.name)}を取り込む">
+    <div class="grow"><div class="t">${r.no?`<span class="no-badge num">${esc(r.no)}</span> `:''}<b>${esc(r.name)}</b>${r.href?` <span style="color:var(--pr);display:inline-flex;vertical-align:-2px">${I.play.replace('<svg','<svg width="14" height="14"')}</span>`:''}${r.exist?' <span class="pill">登録済みを更新</span>':''}</div>
+    <div class="s">${prep?`${esc(r.rx||'指定なし')}${r.ts?`　→ チェック ${r.ts}回`:''}`:`${esc(r.rx||'指定なし')}　→ 目標 ${r.tw==null?'—':r.tw===0?'自重':r.tw+'kg'}${r.tr!=null?' × '+r.tr+'回':''}${r.ts!=null?' × '+r.ts+'セット':''}`}</div>
+    ${prep?'':`<label class="menu-partrow small muted">部位 <select class="plain menu-part" id="mp${i}" data-f="menuPart" data-i="${i}" aria-label="部位">${D.parts.filter(p=>!PREP_HEAD.test(p.name)).map(p=>`<option value="${p.id}"${p.id===r.partId?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`}</div></div>`;
+}
 function sheetMenuImport(s){
   const rows=s.rows||[],n=rows.filter(r=>r.on).length;
-  let h=`<div class="form"><p class="small muted" style="margin:0">トレーナーから届いたメニュー表（Notion・スプレッドシート・メールなど）をコピーして、下の枠に貼り付けてください。種目名・重さ・回数・セット、種目名に付いているリンク（解説動画）を読み取ります。</p>
-    <label class="f">プログラム名<input class="plain" id="menuName" data-f="menuName" value="${esc(s.name)}"></label>
-    <label class="f">メニュー表を貼り付け<textarea class="plain" id="menuPaste" placeholder="ここを長押し →「ペースト」" style="min-height:${rows.length?64:130}px;font-size:13px">${esc(s.raw||'')}</textarea></label>
+  const idx=rows.map((r,i)=>[r,i]),pr=idx.filter(([r])=>r.kind==='prep'),mn=idx.filter(([r])=>r.kind!=='prep');
+  let h=`<div class="form"><p class="small muted" style="margin:0">トレーナーから届いたメニュー（Notion・スプレッドシート・メールなど）をコピーして貼り付けてください。<b>箇条書きはプレパレーション</b>、<b>表はトレーニングメニュー</b>として読み取ります。両方まとめて貼り付けてもOKです。</p>
+    <label class="f">取り込み先<select class="plain" id="menuTarget" data-f="menuTarget"><option value="">新しいプログラムを作る</option>${D.programs.map(p=>`<option value="${p.id}"${s.target===p.id?' selected':''}>「${esc(p.name)}」に追加</option>`).join('')}</select></label>
+    ${s.target?'':`<label class="f">プログラム名<input class="plain" id="menuName" data-f="menuName" value="${esc(s.name)}"></label>`}
+    <label class="f">メニューを貼り付け<textarea class="plain" id="menuPaste" placeholder="ここを長押し →「ペースト」" style="min-height:${rows.length?64:130}px;font-size:13px">${esc(s.raw||'')}</textarea></label>
     <button class="btn ${rows.length?'ghost':''} block" data-act="menuParse">貼り付けた内容を読み取る</button>`;
-  if(s.tried&&!rows.length)h+=`<p class="auth-msg" style="margin:0">種目を読み取れませんでした。表の見出し（種目・重さ・回数・セット）を含めてコピーしているか確認してください。</p>`;
-  if(rows.length){
-    h+=`<div><div class="label" style="margin-bottom:6px">読み取り結果（${rows.length}種目）— 部位は自動で推測しています。違っていたら直してください</div><div class="list">${rows.map((r,i)=>`<div class="li menu-li"><input type="checkbox" id="mi${i}" data-f="menuOn" data-i="${i}"${r.on?' checked':''} aria-label="${esc(r.name)}を取り込む">
-      <div class="grow"><div class="t">${r.no?`<span class="no-badge num">${esc(r.no)}</span> `:''}<b>${esc(r.name)}</b>${r.href?` <span style="color:var(--pr);display:inline-flex;vertical-align:-2px">${I.play.replace('<svg','<svg width="14" height="14"')}</span>`:''}${r.exist?' <span class="pill">登録済みを更新</span>':''}</div>
-      <div class="s">${esc(r.rx||'指定なし')}　→ 目標 ${r.tw==null?'—':r.tw===0?'自重':r.tw+'kg'}${r.tr!=null?' × '+r.tr+'回':''}${r.ts!=null?' × '+r.ts+'セット':''}</div>
-      <label class="menu-partrow small muted">部位 <select class="plain menu-part" id="mp${i}" data-f="menuPart" data-i="${i}" aria-label="部位">${D.parts.map(p=>`<option value="${p.id}"${p.id===r.partId?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label></div></div>`).join('')}</div>
-      <p class="small muted" style="margin:8px 0 0">「6〜10回」のような幅のある指定は、回数は下限・セットは上限を目標にします。「10rm」のように重さが決まっていないものは重量の目標なしで登録し、指定の文言はそのまま種目に表示します。</p></div>
-    <button class="btn primary block" data-act="menuDo"${n?'':' disabled'}>${n}種目を取り込んでプログラムを作る</button>`;
-  }
+  if(s.tried&&!rows.length)h+=`<p class="auth-msg" style="margin:0">種目を読み取れませんでした。表なら見出し（種目・重さ・回数・セット）ごと、箇条書きなら「・」や「*」の行ごとコピーしてください。</p>`;
+  if(pr.length)h+=`<div><div class="label" style="margin-bottom:6px">プレパレーション（${pr.length}種目）— 記録ではチェックを付けるだけの種目になります</div><div class="list">${pr.map(([r,i])=>menuRowHTML(r,i)).join('')}</div></div>`;
+  if(mn.length)h+=`<div><div class="label" style="margin-bottom:6px">トレーニング（${mn.length}種目）— 部位は自動で推測しています。違っていたら直してください</div><div class="list">${mn.map(([r,i])=>menuRowHTML(r,i)).join('')}</div>
+      <p class="small muted" style="margin:8px 0 0">「6〜10回」のような幅のある指定は、回数は下限・セットは上限を目標にします。「10rm」のように重さが決まっていないものは重量の目標なしで登録し、指定の文言はそのまま種目に表示します。</p></div>`;
+  if(rows.length)h+=`<button class="btn primary block" data-act="menuDo"${n?'':' disabled'}>${n}種目を${s.target?'プログラムに追加':'取り込んでプログラムを作る'}</button>`;
   return ['メニュー取り込み',h+`</div>`];
 }
-function runMenuParse(text,html){const s=st.sheet;s.raw=text;s.rows=parseMenu(text,html);s.tried=true;renderSheet()}
+function runMenuParse(text,html){const s=st.sheet;s.raw=text;s.rows=parseMenuAll(text,html);s.tried=true;renderSheet()}
+function newEntry(ex){const en={id:uid(),ex:ex.id,sets:[],memo:''};if(ex.type==='cardio')en.c={};if(isPrep(ex))en.chk=Array(Math.max(1,ex.ts||1)).fill(false);return en}
 function addProgramToDay(pg){
   const day=getDay(st.date,true);let n=0;
-  pg.items.forEach(it=>{const ex=exById(it.ex);if(!ex||day.e.some(e=>e.ex===ex.id))return;const en={id:uid(),ex:ex.id,sets:[],memo:'',no:it.no||''};if(ex.type==='cardio')en.c={};day.e.push(en);n++});
+  const its=[...pg.items.filter(it=>isPrep(exById(it.ex))),...pg.items.filter(it=>!isPrep(exById(it.ex)))];
+  its.forEach(it=>{const ex=exById(it.ex);if(!ex||day.e.some(e=>e.ex===ex.id))return;const en=newEntry(ex);en.no=it.no||'';if(isPrep(ex)){const pi=day.e.findIndex(e=>!isPrep(exById(e.ex)));if(pi>=0){day.e.splice(pi,0,en);n++;return}}day.e.push(en);n++});
   cleanDay(st.date);if(n)save();return n;
 }
 function sheetProgram(s){
   const pg=D.programs.find(p=>p.id===s.id);if(!pg)return ['プログラム','<div class="empty">見つかりません</div>'];
-  return [pg.name,`<div class="form"><div class="list">${pg.items.map(it=>{const ex=exById(it.ex);return ex?`<div class="li"><div class="grow"><div class="t">${it.no?`<span class="no-badge num">${esc(it.no)}</span> `:''}${esc(ex.name)}</div><div class="s">${esc(it.rx||targetText(ex))}</div></div>${chip(partById(ex.partId))}</div>`:''}).join('')}</div>
+  const li=it=>{const ex=exById(it.ex);return ex?`<div class="li"><div class="grow"><div class="t">${it.no?`<span class="no-badge num">${esc(it.no)}</span> `:''}${esc(ex.name)}${vids(ex).length?` <span style="color:var(--pr);display:inline-flex;vertical-align:-2px">${I.play.replace('<svg','<svg width="14" height="14"')}</span>`:''}</div><div class="s">${esc(it.rx||ex.rx||targetText(ex))}</div></div>${isPrep(ex)?'':chip(partById(ex.partId))}</div>`:''};
+  const pr=pg.items.filter(it=>isPrep(exById(it.ex))),mn=pg.items.filter(it=>!isPrep(exById(it.ex)));
+  return [pg.name,`<div class="form">${pr.length?`<div><div class="label" style="margin-bottom:6px">プレパレーション</div><div class="list">${pr.map(li).join('')}</div></div>`:''}
+    ${mn.length?`<div><div class="label" style="margin-bottom:6px">トレーニング</div><div class="list">${mn.map(li).join('')}</div></div>`:''}
     <button class="btn primary block" data-act="programAdd" data-id="${pg.id}">${md(st.date)} の記録に追加</button>
+    <button class="btn ghost block" data-act="menuAddTo" data-id="${pg.id}">メニューを貼り付けて追加（プレパレーションなど）</button>
     <button class="btn danger block" data-act="programDel" data-id="${pg.id}">このプログラムを削除（種目と記録は残ります）</button></div>`];
 }
 function sheetProgramPick(){
@@ -922,7 +992,7 @@ function monthAgo(s){const d=parseDate(s);const day=d.getDate();d.setDate(1);d.s
 const mdw=s=>`${md(s)}(${WD[parseDate(s).getDay()]})`;
 function setsText(sets){
   const ss=sets.filter(s=>s.r!==''&&s.r!=null);const g=[];
-  ss.forEach(s=>{const last=g.at(-1);const r=s.r+(s.a?'(補)':'');if(last&&last.w===+s.w)last.r.push(r);else g.push({w:+s.w,r:[r]})});
+  ss.forEach(s=>{const last=g.at(-1);const r=s.r+(s.a?'(補'+(s.aw?fw(s.aw)+U():'')+')':'');if(last&&last.w===+s.w)last.r.push(r);else g.push({w:+s.w,r:[r]})});
   return g.map(x=>`${x.w?fw(x.w)+U():'自重'} × ${x.r.join('・')}`).join(' ／ ');
 }
 function topRm(en){return Math.max(0,...en.sets.filter(s=>!s.a&&s.r!==''&&s.r!=null).map(s=>e1rm(+s.w,+s.r)))}
@@ -932,7 +1002,7 @@ function reportData(from,to){
   for(const d of sortedDates()){
     if(d<from||d>to)continue;const ps=new Set();
     for(const en of D.logs[d].e){
-      const ex=exById(en.ex);if(!ex)continue;const cardio=ex.type==='cardio';
+      const ex=exById(en.ex);if(!ex||isPrep(ex))continue;const cardio=ex.type==='cardio';
       const ok=cardio?!!(en.c&&(en.c.min||en.c.km||en.c.kcal)):en.sets.some(s=>s.r!==''&&s.r!=null);
       if(!ok)continue;ps.add(ex.partId);
       let m=exMap.get(ex.id);if(!m){m={ex,sessions:[]};exMap.set(ex.id,m)}
@@ -1047,7 +1117,7 @@ function sheetEx(s){
     <label class="f">種目名<input class="plain" id="xn" value="${esc(e.name)}" placeholder="例：ベンチプレス"></label>
     <div class="grid3" style="grid-template-columns:1fr 1fr">
       <label class="f">部位<select class="plain" id="xp">${D.parts.map(p=>`<option value="${p.id}"${p.id===e.partId?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
-      <label class="f">種類<select class="plain" id="xt"><option value="weight"${e.type!=='cardio'?' selected':''}>筋トレ（重量×回数）</option><option value="cardio"${e.type==='cardio'?' selected':''}>有酸素（時間・距離）</option></select></label>
+      <label class="f">種類<select class="plain" id="xt"><option value="weight"${e.type!=='cardio'?' selected':''}>筋トレ（重量×回数）</option><option value="cardio"${e.type==='cardio'?' selected':''}>有酸素（時間・距離）</option><option value="prep"${e.type==='prep'?' selected':''}>プレパレーション（チェックのみ）</option></select></label>
     </div>
     <div><div class="label" style="margin-bottom:6px">現在の目標</div><div class="grid3">
       <label class="f">重量（${U()}）<span class="field"><input id="xw" inputmode="decimal" value="${esc(fw(e.tw))}" placeholder="—"></span></label>
@@ -1056,6 +1126,7 @@ function sheetEx(s){
     </div><p class="small muted" style="margin:6px 0 0">目標を満たしたセットには ✓ が付きます。自重種目は重量を 0 に。</p></div>
     <div><div class="label" style="margin-bottom:6px">解説動画（YouTubeなどのURL・3つまで）</div><div class="vid-rows">${[0,1,2].map(i=>{const v=vs[i]||{u:'',t:''},id=ytId(v.u);return `<div class="vid-row"><span class="no num">${i+1}</span><div class="vid-in"><input class="plain" id="xy${i}" type="url" inputmode="url" value="${esc(v.u)}" placeholder="https://youtu.be/..." aria-label="動画${i+1}のURL"><input class="plain" id="xl${i}" value="${esc(v.t||'')}" maxlength="20" placeholder="表示名（任意）例：コーチ推奨" aria-label="動画${i+1}の表示名">${v.u?`<a class="vid-open" href="${esc(v.u)}" target="_blank" rel="noopener">${id?`<img class="thumb" src="https://i.ytimg.com/vi/${id}/mqdefault.jpg" alt="" onerror="this.remove()">`:''}<span class="yt">${I.play}開く</span></a>`:''}</div></div>`}).join('')}</div>
     <a class="linkish" style="display:inline-block;margin-top:8px" href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">YouTubeで「${esc(e.name||'種目名')}」を探す</a></div>
+    <label class="f">トレーナー指定（任意）<input class="plain" id="xrx" value="${esc(e.rx||'')}" placeholder="例：30秒 × 2セット"></label>
     <label class="f">フォームのポイント・メモ<textarea class="plain" id="xm" placeholder="例：肩甲骨を寄せる、足で踏ん張る">${esc(e.memo)}</textarea></label>
     <button class="btn primary block" data-act="saveEx" data-id="${s.id||''}">保存</button>
     ${s.id?`<button class="btn danger block" data-act="delEx" data-id="${s.id}">この種目を削除</button>`:''}
@@ -1100,14 +1171,21 @@ function sheetShare(s){
 
 /* ---------- timer ---------- */
 const T={end:0,dur:0,iv:null,done:false};let actx=null,wl=null;
-function ensureAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();actx.resume&&actx.resume()}catch(e){}}
-function beep(){if(!actx)return;try{[0,.28,.56].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=t===.56?1320:880;o.connect(g);g.connect(actx.destination);const s=actx.currentTime+t;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.3,s+.02);g.gain.exponentialRampToValueAtTime(.0001,s+.2);o.start(s);o.stop(s+.22)})}catch(e){}}
+let master=null;
+const VOL=()=>({s:.35,m:.65,l:1})[D&&D.settings&&D.settings.vol||'l']||1;
+function applyAudioSession(){try{if(navigator.audioSession)navigator.audioSession.type=D&&D.settings&&D.settings.loudMode?'playback':'auto'}catch(e){}}
+function ensureAudio(){try{applyAudioSession();actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  if(!master){const comp=actx.createDynamicsCompressor();comp.threshold.value=-12;comp.knee.value=0;comp.ratio.value=6;comp.attack.value=.002;comp.release.value=.08;master=actx.createGain();master.connect(comp);comp.connect(actx.destination)}
+  master.gain.value=VOL();actx.resume&&actx.resume()}catch(e){}}
+function tone(freq,t0,dur,peak,type){if(!actx||!master)return;const o=actx.createOscillator(),g=actx.createGain();o.type=type||'square';o.frequency.value=freq;o.connect(g);g.connect(master);const s=actx.currentTime+t0;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(peak,s+.004);g.gain.setValueAtTime(peak,s+dur*.7);g.gain.exponentialRampToValueAtTime(.0001,s+dur);o.start(s);o.stop(s+dur+.03)}
+function beep(){try{[0,.75,1.5].forEach(g=>[0,.16,.32].forEach((t,i)=>tone(i===2?3136:2637,g+t,.11,.9)))}catch(e){}}
+function preBeep(){try{tone(2093,0,.09,.75)}catch(e){}}
 async function wake(on){try{if(on&&!wl&&navigator.wakeLock){wl=await navigator.wakeLock.request('screen');wl.addEventListener?.('release',()=>wl=null)}else if(!on&&wl){await wl.release();wl=null}}catch(e){}}
-function startTimer(sec){if(CU.start)stopCount(true);sec=sec||D.settings.rest||90;T.dur=sec;T.end=Date.now()+sec*1000;T.done=false;ensureAudio();clearInterval(T.iv);T.iv=setInterval(tick,250);drawTimer();tick();wake(true);renderFab()}
+function startTimer(sec){if(CU.start)stopCount(true);sec=sec||D.settings.rest||90;T.dur=sec;T.end=Date.now()+sec*1000;T.done=false;T.lastLeft=0;ensureAudio();clearInterval(T.iv);T.iv=setInterval(tick,250);drawTimer();tick();wake(true);renderFab()}
 function stopTimer(){clearInterval(T.iv);T.iv=null;T.end=0;if(!CU.start){$('#timer').hidden=true;wake(false)}renderFab()}
 /* count-up stopwatch: ピン every second, higher ピン every 10 seconds */
 const CU={start:0,acc:0,paused:false,iv:null,last:0};
-function ping(hi){if(!actx||D.settings.tickSound===false)return;try{const o=actx.createOscillator(),g=actx.createGain();o.type='sine';o.frequency.value=hi?2093:1568;o.connect(g);g.connect(actx.destination);const t=actx.currentTime;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(hi?.35:.25,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+(hi?.18:.09));o.start(t);o.stop(t+(hi?.2:.1))}catch(e){}}
+function ping(hi){if(D.settings.tickSound===false)return;try{tone(hi?2637:2093,0,hi?.16:.07,hi?.9:.7)}catch(e){}}
 const cuElapsed=()=>CU.acc+(CU.paused||!CU.start?0:Date.now()-CU.start);
 function startCount(){if(T.end){clearInterval(T.iv);T.iv=null;T.end=0}ensureAudio();CU.start=Date.now();CU.acc=0;CU.paused=false;CU.last=0;clearInterval(CU.iv);CU.iv=setInterval(cuTick,100);drawCount();cuTick();wake(true);renderFab()}
 function stopCount(keep){clearInterval(CU.iv);CU.iv=null;CU.start=0;CU.acc=0;CU.paused=false;if(!keep){$('#timer').hidden=true;wake(false)}renderFab()}
@@ -1123,7 +1201,8 @@ function tick(){
   const tt=$('#tt'),tb=$('#tb');if(!tt)return;
   tt.textContent=left?`${Math.floor(left/60)}:${pad(left%60)}`:'スタート！';
   tb.style.width=(100*(1-left/T.dur))+'%';
-  if(!left&&!T.done){T.done=true;$('#tin').classList.add('done');beep();try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}setTimeout(()=>{if(T.done)stopTimer()},5000)}
+  if(left&&left<=3&&left!==T.lastLeft){T.lastLeft=left;preBeep()}
+  if(!left&&!T.done){T.done=true;$('#tin').classList.add('done');beep();try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}setTimeout(()=>{if(T.done)stopTimer()},6000)}
 }
 function renderFab(){$('#fabhost').innerHTML=(st.view==='record'&&!T.end&&!CU.start)?`<div class="fabs"><button class="fab up" data-act="countUp" aria-label="カウントアップ開始">${I.up.replace('<svg','<svg width="20" height="20"')}0:00</button><button class="fab" data-act="timer" aria-label="インターバルタイマー開始">${I.timer}${D.settings.rest}s</button></div>`:''}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&T.end)tick();if(!document.hidden&&CU.start){CU.last=Math.floor(cuElapsed()/1000);cuTick()}});
@@ -1133,15 +1212,15 @@ let toastT;function toast(msg){const h=$('#toasthost');h.innerHTML=`<div class="
 function render(){const app=st.screen==='app';$('.tabbar').hidden=!app;if(!app){$('#main').innerHTML=viewAuth();$('#fabhost').innerHTML='';return}$('#main').innerHTML={record:viewRecord,cal:viewCal,ana:viewAna,ex:viewEx,tools:viewTools}[st.view]();$$('.tab').forEach(t=>t.setAttribute('aria-current',t.dataset.v===st.view?'page':'false'));renderFab()}
 function copyEntries(fromDate){
   const src=D.logs[fromDate]?.e||[];if(!src.length)return 0;const day=getDay(st.date,true);
-  src.forEach(en=>{if(!exById(en.ex))return;day.e.push({id:uid(),ex:en.ex,sets:en.sets.map(s=>({w:s.w,r:s.r,a:false})),c:en.c?{...en.c}:undefined,memo:''})});
+  src.forEach(en=>{if(!exById(en.ex))return;day.e.push({id:uid(),ex:en.ex,sets:en.sets.map(s=>s.aw!==''&&s.aw!=null&&s.a?{w:s.w,r:s.r,a:true,aw:s.aw}:{w:s.w,r:s.r,a:false}),c:en.c?{...en.c}:undefined,chk:en.chk?en.chk.map(()=>false):undefined,no:en.no||'',memo:''})});
   save();return src.length;
 }
 function exportText(kind){
   if(kind==='json')return JSON.stringify(D,null,1);
-  const rows=[['date','part','exercise','set','weight_kg','reps','assist','minutes','km','kcal','memo']];
+  const rows=[['date','part','exercise','set','weight_kg','reps','assist','assist_kg','minutes','km','kcal','memo']];
   for(const d of sortedDates())for(const en of D.logs[d].e){const ex=exById(en.ex),p=partById(ex?.partId);
-    if(ex?.type==='cardio')rows.push([d,p?.name,ex?.name,'','','','',en.c?.min??'',en.c?.km??'',en.c?.kcal??'',en.memo||'']);
-    else en.sets.forEach((s,i)=>rows.push([d,p?.name,ex?.name,i+1,s.w,s.r,s.a?1:0,'','','',i===0?en.memo||'':'']))}
+    if(ex?.type==='cardio')rows.push([d,p?.name,ex?.name,'','','','','',en.c?.min??'',en.c?.km??'',en.c?.kcal??'',en.memo||'']);
+    else en.sets.forEach((s,i)=>rows.push([d,p?.name,ex?.name,i+1,s.w,s.r,s.a?1:0,s.aw??'','','','',i===0?en.memo||'':'']))}
   return '﻿'+rows.map(r=>r.map(v=>{v=String(v??'');return /[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v}).join(',')).join('\n');
 }
 async function saveFile(name,text,type){
@@ -1160,9 +1239,9 @@ async function shareDay(){
   const day=D.logs[st.date];if(!day?.e.length)return;
   try{await document.fonts.ready}catch(e){}
   const W=1080,lines=[];
-  day.e.forEach(en=>{const ex=exById(en.ex);if(!ex)return;if(ex.type!=='cardio'&&!en.sets.length)return;if(ex.type==='cardio'&&!(en.c&&(en.c.min||en.c.km||en.c.kcal)))return;lines.push({h:true,t:ex.name,c:colorOf(ex)});
+  day.e.forEach(en=>{const ex=exById(en.ex);if(!ex||isPrep(ex))return;if(ex.type!=='cardio'&&!en.sets.length)return;if(ex.type==='cardio'&&!(en.c&&(en.c.min||en.c.km||en.c.kcal)))return;lines.push({h:true,t:ex.name,c:colorOf(ex)});
     if(ex.type==='cardio'){const c=en.c||{};lines.push({t:[c.min&&c.min+'分',c.km&&c.km+'km',c.kcal&&c.kcal+'kcal'].filter(Boolean).join('   ')||'—'})}
-    else{const ss=en.sets.map(s=>`${fw(s.w)}×${s.r}${s.a?'*':''}`);for(let i=0;i<ss.length;i+=4)lines.push({t:ss.slice(i,i+4).join('    ')})}});
+    else{const ss=en.sets.map(s=>`${fw(s.w)}×${s.r}${s.a?'(補'+(s.aw?fw(s.aw):'')+')':''}`);for(let i=0;i<ss.length;i+=4)lines.push({t:ss.slice(i,i+4).join('    ')})}});
   const H=330+lines.reduce((a,l)=>a+(l.h?84:62),0)+150;
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;const g=cv.getContext('2d');
   g.fillStyle='#111417';g.fillRect(0,0,W,H);
@@ -1187,13 +1266,15 @@ const A={
   calDay:el=>{st.date=el.dataset.d;st.view='record';window.scrollTo(0,0);render()},
   openAdd:()=>{const last=(D.logs[st.date]?.e||[]).at(-1);openSheet({type:'add',part:last?exById(last.ex)?.partId:null})},
   pickPart:el=>{st.sheet.part=el.dataset.id;renderSheet()},
-  addEntry:el=>{const day=getDay(st.date,true);const ex=exById(el.dataset.id);const en={id:uid(),ex:ex.id,sets:[],memo:''};if(ex.type==='cardio')en.c={};day.e.push(en);save();closeSheet();render();setTimeout(()=>$('#e-'+en.id)?.scrollIntoView({behavior:'smooth',block:'center'}),30)},
+  addEntry:el=>{const day=getDay(st.date,true);const ex=exById(el.dataset.id);const en=newEntry(ex);day.e.push(en);save();closeSheet();render();setTimeout(()=>$('#e-'+en.id)?.scrollIntoView({behavior:'smooth',block:'center'}),30)},
   copyPrev:()=>{const p=prevDayWithLog(st.date);if(!p){toast('コピーできる前回の記録がありません');return}const n=copyEntries(p);render();toast(`${md(p)} の ${n}種目をコピーしました`)},
   openCopy:()=>openSheet({type:'copy'}),
   copyFrom:el=>{const n=copyEntries(el.dataset.d);closeSheet();render();toast(`${md(el.dataset.d)} の ${n}種目をコピーしました`)},
   addSet:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const last=en.sets.at(-1);let s;
-    if(last)s={w:last.w,r:last.r,a:false};else if(ex.tw!=null||ex.tr!=null)s={w:ex.tw??'',r:ex.tr??'',a:false};else{const lr=lastRecord(ex.id,st.date);s=lr&&lr.en.sets[0]?{w:lr.en.sets[0].w,r:lr.en.sets[0].r,a:false}:{w:'',r:'',a:false}}
+    if(last){s={w:last.w,r:last.r,a:false};if(last.a&&last.aw!==''&&last.aw!=null){s.a=true;s.aw=last.aw}}else if(ex.tw!=null||ex.tr!=null)s={w:ex.tw??'',r:ex.tr??'',a:false};else{const lr=lastRecord(ex.id,st.date);s=lr&&lr.en.sets[0]?{w:lr.en.sets[0].w,r:lr.en.sets[0].r,a:false}:{w:'',r:'',a:false}}
     en.sets.push(s);save();render();if(D.settings.autoTimer&&last)startTimer()},
+  chk:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];const i=+el.dataset.i;en.chk[i]=!en.chk[i];save();render()},
+  chkAdd:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];en.chk.push(false);save();render()},
   delSet:el=>{const en=findEnt(el.dataset.id);en.sets.splice(+el.dataset.i,1);save();render()},
   assist:el=>{const en=findEnt(el.dataset.id);const s=en.sets[+el.dataset.i];s.a=!s.a;save();render()},
   fillTarget:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const n=Math.max(ex.ts||1,en.sets.length);for(let i=0;i<n;i++){en.sets[i]={w:ex.tw??en.sets[i]?.w??'',r:ex.tr??en.sets[i]?.r??'',a:en.sets[i]?.a||false}}save();render()},
@@ -1211,11 +1292,11 @@ const A={
     const num=v=>{v=v.trim();if(v==='')return null;const n=parseFloat(v.replace(',','.'));return isNaN(n)?null:n};
     const w=num($('#xw').value),r=num($('#xr').value),s=num($('#xs').value);
     const yts=[0,1,2].map(i=>{let u=$('#xy'+i).value.trim();if(u&&!/^https?:\/\//i.test(u))u='https://'+u;return {u,t:$('#xl'+i).value.trim()}}).filter(v=>v.u);const yt=yts[0]?yts[0].u:'';
-    const data={name,partId:$('#xp').value,type:$('#xt').value,tw:w==null?null:toKg(w),tr:r==null?null:Math.round(r),ts:s==null?null:Math.round(s),yt,yts,memo:$('#xm').value.trim()};
+    const data={name,partId:$('#xp').value,type:$('#xt').value,tw:w==null?null:toKg(w),tr:r==null?null:Math.round(r),ts:s==null?null:Math.round(s),yt,yts,rx:$('#xrx').value.trim(),memo:$('#xm').value.trim()};
     const fromAdd=st.sheet.fromAdd;let id=el.dataset.id;
     if(id){const e=exById(id);Object.assign(e,data);delete e.sampleT}else{id=uid();D.exercises.push({id,...data})}
     save();
-    if(fromAdd){const day=getDay(st.date,true);const en={id:uid(),ex:id,sets:[],memo:''};if(data.type==='cardio')en.c={};day.e.push(en);save()}
+    if(fromAdd){const day=getDay(st.date,true);day.e.push(newEntry(exById(id)));save()}
     closeSheet();render();toast('保存しました')},
   delEx:el=>{const e=exById(el.dataset.id);let n=0;for(const d in D.logs)n+=D.logs[d].e.filter(x=>x.ex===e.id).length;
     confirmSheet('種目を削除しますか？',`「${esc(e.name)}」を削除します。${n?`この種目の記録 <b>${n}件</b> も一緒に消えます。`:''}`,'削除する',()=>{D.exercises=D.exercises.filter(x=>x.id!==e.id);for(const d of Object.keys(D.logs)){D.logs[d].e=D.logs[d].e.filter(x=>x.ex!==e.id);cleanDay(d)}if(st.ax===e.id)st.ax=null;save();closeSheet();render()})},
@@ -1227,15 +1308,20 @@ const A={
   delPart:el=>{const p=partById(el.dataset.id);if(D.exercises.some(e=>e.partId===p.id)){toast('先にこの部位の種目を削除するか、別の部位へ移してください');return}confirmSheet('部位を削除しますか？',`「${esc(p.name)}」を削除します。`,'削除する',()=>{D.parts=D.parts.filter(x=>x.id!==p.id);save();closeSheet();render()})},
   confirmOk:()=>{const f=st.confirmFn;st.confirmFn=null;f&&f()},
   closeSheet:()=>closeSheet(),
-  menuOpen:()=>openSheet({type:'menuImport',name:'プログラム '+md(todayStr()),rows:[],raw:''}),
+  menuOpen:()=>openSheet({type:'menuImport',name:'プログラム '+md(todayStr()),rows:[],raw:'',target:''}),
   menuParse:()=>runMenuParse($('#menuPaste').value,''),
   menuDo:()=>{const s=st.sheet,rows=s.rows.filter(r=>r.on);if(!rows.length)return;const items=[];
     rows.forEach(r=>{let e=D.exercises.find(x=>x.name.trim().toLowerCase()===r.name.toLowerCase());
-      if(!e){e={id:uid(),partId:r.partId,name:r.name,type:partById(r.partId)?.name==='有酸素'?'cardio':'weight',tw:null,tr:null,ts:null,yt:'',yts:[],memo:''};D.exercises.push(e)}else e.partId=r.partId;
+      const pid=r.kind==='prep'?prepPartId(true):r.partId;
+      if(!e){e={id:uid(),partId:pid,name:r.name,type:r.kind==='prep'?'prep':partById(pid)?.name==='有酸素'?'cardio':'weight',tw:null,tr:null,ts:null,yt:'',yts:[],memo:''};D.exercises.push(e)}else{e.partId=pid;if(r.kind==='prep')e.type='prep'}
       if(r.tw!=null)e.tw=r.tw;else if(r.rx)e.tw=null;if(r.tr!=null)e.tr=r.tr;if(r.ts!=null)e.ts=r.ts;if(r.rx)e.rx=r.rx;delete e.sampleT;
       if(r.href){const v=vids(e).filter(x=>x.u!==r.href);e.yts=[{u:r.href,t:''},...v].slice(0,3);e.yt=e.yts[0].u}
-      items.push({ex:e.id,no:r.no,rx:r.rx})});
-    const pg={id:uid(),name:(s.name||'').trim()||'プログラム '+md(todayStr()),date:todayStr(),items};D.programs.unshift(pg);save();st.view='ex';render();openSheet({type:'program',id:pg.id});toast(`${items.length}種目を取り込みました`)},
+      items.push({ex:e.id,no:r.no,rx:r.rx,kind:r.kind||'main'})});
+    let pg=s.target&&D.programs.find(p=>p.id===s.target);
+    if(pg){const ids=new Set(items.map(x=>x.ex));pg.items=[...items.filter(x=>x.kind==='prep'),...pg.items.filter(x=>!ids.has(x.ex)),...items.filter(x=>x.kind!=='prep')]}
+    else{pg={id:uid(),name:(s.name||'').trim()||'プログラム '+md(todayStr()),date:todayStr(),items};D.programs.unshift(pg)}
+    save();st.view='ex';render();openSheet({type:'program',id:pg.id});toast(`${items.length}種目を取り込みました`)},
+  menuAddTo:el=>openSheet({type:'menuImport',name:'',rows:[],raw:'',target:el.dataset.id}),
   openProgram:el=>openSheet({type:'program',id:el.dataset.id}),
   programPick:()=>{if(D.programs.length===1)openSheet({type:'program',id:D.programs[0].id});else openSheet({type:'programPick'})},
   programAdd:el=>{const pg=D.programs.find(p=>p.id===el.dataset.id);const n=addProgramToDay(pg);closeSheet();st.view='record';window.scrollTo(0,0);render();toast(n?`${n}種目を追加しました`:'すべて追加済みです')},
@@ -1257,6 +1343,8 @@ const A={
   tAdj:el=>{T.end+= +el.dataset.n*1000;T.dur=Math.max(1,T.dur+ +el.dataset.n);if(T.end<Date.now())T.end=Date.now();tick()},
   tStop:()=>stopTimer(),
   countUp:()=>startCount(),
+  vol:el=>{D.settings.vol=el.dataset.v;save();ensureAudio();render();setTimeout(beep,50)},
+  volTest:()=>{ensureAudio();beep()},
   cuStop:()=>stopCount(),
   cuReset:()=>{ensureAudio();CU.acc=0;CU.last=0;CU.start=Date.now();cuTick()},
   cuPause:el=>{ensureAudio();if(CU.paused){CU.start=Date.now();CU.paused=false}else{CU.acc=cuElapsed();CU.paused=true}el.textContent=CU.paused?'再開':'停止'},
@@ -1281,6 +1369,7 @@ const A={
 document.addEventListener('click',ev=>{const el=ev.target.closest('[data-act]');if(!el||el.disabled)return;const f=A[el.dataset.act];if(f){ev.preventDefault();f(el)}});
 document.addEventListener('input',ev=>{
   const el=ev.target,f=el.dataset.f;if(!f)return;
+  if(f==='aw'){const en=findEnt(el.dataset.id),i=+el.dataset.i,s=en.sets[i];s.aw=toKg(el.value);save();const tg=$('#tg-'+en.id+'-'+i);if(tg)tg.textContent=s.aw!==''&&s.aw!=null&&+s.aw?'補'+fw(s.aw):'補助';return}
   if(f==='w'||f==='r'){const en=findEnt(el.dataset.id),i=+el.dataset.i,s=en.sets[i];if(f==='w')s.w=toKg(el.value);else{const n=parseInt(el.value);s.r=isNaN(n)?'':n}save();
     const ex=exById(en.ex),row=el.closest('.set');const hit=hitTarget(ex,s);row.classList.toggle('hit',hit);row.querySelector('.no').textContent=hit?'✓':i+1;const c=$('#rm-'+en.id+'-'+i);if(c)c.innerHTML=rmCell(s,false);updSummary()}
   else if(f==='c'){const en=findEnt(el.dataset.id);en.c=en.c||{};const n=parseFloat(el.value);en.c[el.dataset.k]=isNaN(n)?'':n;save()}
@@ -1294,7 +1383,9 @@ document.addEventListener('input',ev=>{
 document.addEventListener('change',ev=>{
   const el=ev.target;
   if(el.dataset.f==='menuOn'){st.sheet.rows[+el.dataset.i].on=el.checked;renderSheet();return}
+  if(el.dataset.f==='menuTarget'){st.sheet.target=el.value;renderSheet();return}
   if(el.dataset.f==='menuPart'){st.sheet.rows[+el.dataset.i].partId=el.value;return}
+  if(el.dataset.f==='loudM'){D.settings.loudMode=el.checked;save();applyAudioSession();return}
   if(el.dataset.f==='tickS'){D.settings.tickSound=el.checked;save();return}
   if(el.dataset.f==='autoT'){D.settings.autoTimer=el.checked;save()}
   else if(el.dataset.f==='ax'){st.ax=el.value;render()}
