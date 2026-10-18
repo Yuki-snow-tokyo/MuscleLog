@@ -267,6 +267,28 @@ select.plain.menu-part{width:auto;min-width:120px;height:36px;font-size:14px;pad
 .assist-row{display:flex;align-items:center;gap:8px;margin:-2px 0 4px 32px;font-size:12.5px;color:var(--warn);flex-wrap:wrap}
 .assist-row .field{width:80px}.assist-row .field input{height:36px;font-size:18px;border-color:var(--warn)}
 .assist-row .grow{min-width:120px;flex:1}
+.quick{margin:4px 0 6px}
+.quick h2{font-size:18px;font-weight:700;margin:4px 2px 10px}
+.quick-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.quick-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);min-height:96px}
+.quick-btn .qn{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+.quick-btn .qs{font-size:12.5px;color:var(--ink-2)}
+.quick-btn.rec{border:2px solid var(--accent)}
+.quick-btn:active{transform:scale(.99)}
+.rec{margin-top:8px;border-radius:10px;padding:8px 10px;background:var(--accent-soft);font-size:13px}
+.rec.keep{background:var(--surface-2)}
+.rec-top{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.rec-top b{font-size:18px}
+.rec-badge{font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:99px;background:var(--accent);color:var(--accent-ink)}
+.rec.keep .rec-badge{background:var(--ink-3);color:var(--surface)}
+.rec.start .rec-badge{background:var(--warn);color:#fff}
+.rec-why{color:var(--ink-2);font-size:12px;margin-top:3px}
+.feel-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.feel-seg{flex:1;min-width:200px}
+.feel-seg button{height:32px;font-size:12.5px}
+.feel-seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.pain{height:38px;padding:0 12px;border-radius:10px;border:1px dashed var(--ink-3);font-size:12.5px;color:var(--ink-2)}
+.pain[aria-pressed="true"]{border-style:solid;border-color:var(--pr);background:var(--pr-soft);color:var(--pr);font-weight:700}
 /* coach report */
 .rep-ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .rep-ctl label{display:flex;flex-direction:column;gap:4px}
@@ -657,7 +679,14 @@ function viewRecord(){
   if(!isToday)h+=`<div style="margin:-2px 0 10px;text-align:center"><button class="linkish" data-act="today">今日に戻る</button></div>`;
   h+=`<div class="summary"><div><span class="label">種目</span><span class="v">${s.n}</span></div><div><span class="label">セット</span><span class="v">${s.sets}</span></div><div><span class="label">ボリューム</span><span class="v">${fvol(s.vol)}<small>${U()}</small></span></div></div>`;
   if(s.parts.length)h+=`<div class="parts-row">${s.parts.map(pid=>chip(partById(pid))).join('')}</div>`;
-  if(!ents.length){
+  if(!ents.length&&D.programs.length){
+    const shown=D.programs.slice(0,4);const lu=p=>p.lastUsed||'';
+    const rec=shown.length>1?shown.reduce((a,p)=>lu(p)<lu(a)?p:a,shown[0]):null;
+    h+=`<section class="quick"><h2>${isToday?'今日':md(date)+' '}は何をやりますか？</h2><div class="quick-list">${shown.map(p=>{const np=p.items.filter(it=>isPrep(exById(it.ex))).length,nm=p.items.length-np;
+      return `<button class="quick-btn${rec&&rec.id===p.id&&rec.lastUsed!==undefined||rec&&rec.id===p.id?' rec':''}" data-act="quickProgram" data-id="${p.id}"><span class="qn">${esc(p.name)}${rec&&rec.id===p.id?' <span class="pill">おすすめ</span>':''}</span><span class="qs">${np?`プレパレーション ${np} ＋ `:''}トレーニング ${nm}種目</span><span class="qs">${p.lastUsed?'前回 '+md(p.lastUsed)+'（'+rel(p.lastUsed)+'）':'まだ使っていません'}</span></button>`}).join('')}</div>
+      ${D.programs.length>4?`<button class="linkish" data-act="programPick" style="margin-top:8px">ほかのプログラム</button>`:''}<p class="small muted" style="margin:8px 0 0">タップするとプレパレーションとトレーニングがまとめて入ります。「おすすめ」は一番長く使っていないプログラムです。</p></section>`;
+  }
+  if(!ents.length&&!D.programs.length){
     const prev=prevDayWithLog(date);
     h+=`<div class="empty"><b>${isToday?'今日の記録はまだありません':'この日の記録はありません'}</b>種目を追加するか、前回のメニューをコピーして始めましょう${prev?`<br><span class="small">前回：${md(prev)}（${rel(prev)}）${dayStats(prev).parts.map(p=>esc(partById(p)?.name)).join('・')}</span>`:''}</div>`;
   }
@@ -689,6 +718,40 @@ function prepHTML(en){
     ${ex.memo?`<div class="small muted" style="margin-top:4px">${esc(ex.memo)}</div>`:''}
     <div class="chk-row">${chk.map((c,i)=>`<button class="chk" data-act="chk" data-id="${en.id}" data-i="${i}" aria-pressed="${!!c}">${c?'✓ ':''}${chk.length>1?(i+1)+'セット目':'完了'}</button>`).join('')}<button class="chk add" data-act="chkAdd" data-id="${en.id}" aria-label="チェックを追加">${I.plus.replace('<svg','<svg width="16" height="16"')}</button></div></article>`;
 }
+/* ---------- effort tags ---------- */
+const FEEL={easy:'余裕',ok:'ちょうど',hard:'ギリギリ'};
+const feelText=en=>[en.feel&&FEEL[en.feel],en.pain?'違和感あり':''].filter(Boolean).join('・');
+function feelHTML(en){return `<div class="feel-row"><span class="small muted">きつさ</span><div class="seg feel-seg">${Object.entries(FEEL).map(([k,l])=>`<button data-act="feel" data-id="${en.id}" data-v="${k}" aria-pressed="${en.feel===k}">${l}</button>`).join('')}</div><button class="pain" data-act="pain" data-id="${en.id}" aria-pressed="${!!en.pain}">違和感</button></div>`}
+/* ---------- next-weight recommendation (double progression) ---------- */
+const incOf=ex=>ex.inc!=null&&ex.inc!==''&&!isNaN(ex.inc)?+ex.inc:(/dumbbell|ダンベル|\bdb\b/i.test(ex.name)?1:/kettlebell|ケトル/i.test(ex.name)?4:2.5);
+const r2=v=>Math.round(v*100)/100;
+function recommend(ex,date){
+  if(!ex||ex.type!=='weight'||ex.tr==null||ex.rec===false)return null;
+  const need=ex.ts||3,inc=incOf(ex),tr=ex.tr;
+  const lr=lastRecord(ex.id,date);
+  if(!lr)return ex.tw?{w:ex.tw,kind:'start',reason:'記録がまだないので、コーチ指定の開始重量から'}:null;
+  const ss=lr.en.sets.filter(x=>x.r!==''&&x.r!=null);if(!ss.length)return null;
+  const when=md(lr.date);
+  const asst=ss.filter(x=>x.a&&x.aw!==''&&x.aw!=null&&+x.aw>0);
+  if(asst.length){
+    const AW=Math.min(...asst.map(x=>+x.aw)),W=Math.max(...asst.map(x=>+x.w||0));
+    const good=asst.filter(x=>+x.aw<=AW&&+x.r>=tr).length;
+    if(good>=need){const nx=Math.max(0,r2(AW-inc));return {w:W,aw:nx,kind:'up',reason:`前回 ${when}：アシスト${fw(AW)}${U()}で${tr}回×${need}セットをクリア → アシストを${fw(inc)}${U()}減らす`}}
+    return {w:W,aw:AW,kind:'keep',reason:`前回 ${when}：アシスト${fw(AW)}${U()}で ${asst.map(x=>x.r).join('・')}回。全セット${tr}回できたらアシストを減らす`};
+  }
+  const W=Math.max(...ss.map(x=>+x.w||0));if(!W)return null;
+  const atW=ss.filter(x=>+x.w>=W),good=atW.filter(x=>!x.a&&+x.r>=tr).length;
+  if(lr.en.pain)return {w:W,kind:'keep',reason:`前回 ${when}：${fw(W)}${U()}で違和感あり → 重さは上げずにフォーム優先。痛みが出るなら軽くするかコーチに相談`};
+  if(good>=need)return {w:r2(W+inc),kind:'up',reason:`前回 ${when}：${fw(W)}${U()}で${tr}回×${need}セットをクリア${lr.en.feel==='easy'?'（余裕）':lr.en.feel==='hard'?'（ギリギリ）':''} → +${fw(inc)}${U()}${lr.en.feel==='easy'?`。余裕があったので +${fw(r2(inc*2))}${U()} も可`:lr.en.feel==='hard'?'。フォームが崩れるなら据え置きでもOK':''}`};
+  const prev=lastRecord(ex.id,lr.date),pW=prev?Math.max(0,...prev.en.sets.filter(x=>x.r!==''&&x.r!=null).map(x=>+x.w||0)):0;
+  const stuck=prev&&pW===W&&prev.en.sets.filter(x=>+x.w>=W&&!x.a&&+x.r>=tr).length<need;
+  return {w:W,kind:'keep',reason:`前回 ${when}：${fw(W)}${U()}で ${atW.map(x=>x.r+(x.a?'(補)':'')).join('・')}回。全セット${tr}回できたら次は+${fw(inc)}${U()}${stuck?`（2回続けて未達。フォームが崩れるなら ${fw(r2(W-inc))}${U()} に戻すのも手）`:''}`};
+}
+function recHTML(ex,date){
+  const r=recommend(ex,date);if(!r)return '';
+  const wt=r.aw!=null?`${r.w?fw(r.w)+U()+' ・ ':''}アシスト ${fw(r.aw)}${U()}`:`${fw(r.w)}${U()}`;
+  return `<div class="rec ${r.kind}"><div class="rec-top"><span class="rec-badge">${r.kind==='up'?(r.aw!=null?'負荷アップ':'重さアップ'):r.kind==='start'?'開始重量':'据え置き'}</span><span>今日の推奨 <b class="num">${wt}</b> × ${ex.tr}回 × ${ex.ts||3}セット</span></div><div class="rec-why">${esc(r.reason)}</div></div>`;
+}
 function entryHTML(en,idx,date){
   const ex=exById(en.ex);if(!ex)return '';
   const p=partById(ex.partId),last=lastRecord(ex.id,date);
@@ -701,6 +764,7 @@ function entryHTML(en,idx,date){
   h+=vids(ex).length?vidLinks(ex):`<button class="linkish" data-act="editEx" data-id="${ex.id}">動画リンクを登録</button>`;
   h+=`</div>`;
   if(ex.rx)h+=`<div class="small" style="margin-top:4px"><span class="muted">トレーナー指定</span> <b>${esc(ex.rx)}</b></div>`;
+  if(ex.type==='weight')h+=recHTML(ex,date);
   if(ex.memo&&ex.type!=='cardio')h+=`<div class="small muted" style="margin-top:4px">${esc(ex.memo)}</div>`;
   if(last){
     const txt=ex.type==='cardio'?cardioText(last.en.c):last.en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${(s.a?'<span class="small">補'+(s.aw?fw(s.aw):'')+'</span>':'')}`).join(' / ');
@@ -726,8 +790,9 @@ function entryHTML(en,idx,date){
         <button class="del" data-act="delSet" data-id="${en.id}" data-i="${i}" aria-label="${i+1}セット目を削除">${I.x}</button>
       </div>${s.a?`<div class="assist-row"><span>アシスト重量</span><span class="field"><input id="aw-${en.id}-${i}" data-f="aw" data-id="${en.id}" data-i="${i}" inputmode="decimal" value="${esc(fw(s.aw))}" placeholder="—" aria-label="${i+1}セット目のアシスト重量"></span><span>${U()}</span>${s.aw?'':'<span class="small muted grow">マシンやバンドの補助。人の補助なら空欄</span>'}</div>`:''}`;
     });
-    h+=`</div><div class="entry-foot"><button class="btn grow" data-act="addSet" data-id="${en.id}">${I.plus}セット</button>${(ex.tw!=null||ex.tr!=null)?`<button class="btn ghost" data-act="fillTarget" data-id="${en.id}">目標値で入力</button>`:''}</div>`;
+    h+=`</div><div class="entry-foot"><button class="btn grow" data-act="addSet" data-id="${en.id}">${I.plus}セット</button>${recommend(ex,date)?`<button class="btn ghost" data-act="fillRec" data-id="${en.id}">推奨で入力</button>`:(ex.tw!=null||ex.tr!=null)?`<button class="btn ghost" data-act="fillTarget" data-id="${en.id}">目標値で入力</button>`:''}</div>`;
   }
+  if(ex.type==='weight')h+=feelHTML(en);
   h+=`<input class="memo-in" id="m-${en.id}" data-f="emem" data-id="${en.id}" value="${esc(en.memo||'')}" placeholder="メモ（フォーム、感覚など）">`;
   return h+`</article>`;
 }
@@ -787,7 +852,7 @@ function viewAna(){
   }
   if(!isBody){
     h+=`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">${vidLinks(ex)}<button class="linkish" data-act="editEx" data-id="${ex.id}">目標・動画を編集</button></div>`;
-    h+=`<section class="section hist"><h2>履歴</h2>${hist.length?`<div class="list">${hist.slice().reverse().map(({d,en})=>`<button class="li" data-act="calDay" data-d="${d}"><div class="grow"><div class="s">${md(d)}（${WD[parseDate(d).getDay()]}）・${rel(d)}</div><div class="t">${cardio?cardioText(en.c):en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${s.a?'<span class="small muted">補'+(s.aw?fw(s.aw):'')+'</span>':''}`).join('　')}</div>${en.memo?`<div class="s">${esc(en.memo)}</div>`:''}</div>${cardio?'':`<span class="small muted num" style="font-size:14px">${fvol(en.sets.reduce((a,s)=>a+(+s.w||0)*(+s.r||0),0))}${U()}</span>`}</button>`).join('')}</div>`:'<div class="empty">まだ記録がありません</div>'}</section>`;
+    h+=`<section class="section hist"><h2>履歴</h2>${hist.length?`<div class="list">${hist.slice().reverse().map(({d,en})=>`<button class="li" data-act="calDay" data-d="${d}"><div class="grow"><div class="s">${md(d)}（${WD[parseDate(d).getDay()]}）・${rel(d)}</div><div class="t">${cardio?cardioText(en.c):en.sets.map(s=>`<span class="num">${fw(s.w)}×${s.r}</span>${s.a?'<span class="small muted">補'+(s.aw?fw(s.aw):'')+'</span>':''}`).join('　')}</div>${feelText(en)?`<div class="s">${esc(feelText(en))}</div>`:''}${en.memo?`<div class="s">${esc(en.memo)}</div>`:''}</div>${cardio?'':`<span class="small muted num" style="font-size:14px">${fvol(en.sets.reduce((a,s)=>a+(+s.w||0)*(+s.r||0),0))}${U()}</span>`}</button>`).join('')}</div>`:'<div class="empty">まだ記録がありません</div>'}</section>`;
   }
   return h;
 }
@@ -876,8 +941,8 @@ function rmOut(){
 
 /* ---------- trainer menu import / programs ---------- */
 const HDR={no:/^(no\.?|№|番号|#)$/i,name:/種目|メニュー|exercise|エクササイズ/i,w:/重さ|重量|負荷|weight|load/i,r:/回数|reps?|レップ/i,s:/セット|sets?/i};
-const GUESS=[[/\bleg raise|レッグレイズ|\bplank|プランク|crunch|クランチ|\bsit-?up|\bab wheel|アブ|腹/i,'腹'],[/deadlift|デッドリフト|pull-?up|\bchin-?up|懸垂|\brow\b|ロウ|ロー|\blat\b|ラット|pull-?down/i,'背中'],[/squat|スクワット|lunge|ランジ|\bleg\b|レッグ|hamstring|ハム|\bcalf|カーフ|hip thrust|glute|step-?up/i,'脚'],[/bench press|ベンチプレス|chest|チェスト|\bfly|フライ|push-?up|腕立て/i,'胸'],[/arnold|shoulder|ショルダー|overhead|\braise|レイズ|\bpress\b|プレス/i,'肩'],[/\bcurl|カール|\bdips?\b|ディップ|tricep|bicep|extension|エクステンション/i,'腕'],[/\brun|ラン|\bbike|バイク|\bwalk|ウォーク|\bjog/i,'有酸素']];
-function guessPart(name){for(const [re,pn] of GUESS)if(re.test(name)){const p=D.parts.find(x=>x.name===pn);if(p)return p.id}return D.parts[0]?.id}
+const GUESS=[[/side ?(bridge|plank)|サイド ?(ブリッジ|プランク)|copenhagen|コペンハーゲン|\bdead ?bug|デッドバグ|bird ?dog|バードドッグ|pallof|パロフ|\bleg raise|レッグレイズ|\bplank|プランク|crunch|クランチ|\bsit-?up|\bab wheel|アブ|腹/i,'腹'],[/deadlift|デッドリフト|pull-?up|\bchin-?up|懸垂|\brow\b|ロウ|ロー|\blat\b|ラット|pull-?down/i,'背中'],[/squat|スクワット|lunge|ランジ|\bleg\b|レッグ|hamstring|ハム|\bcalf|カーフ|hip thrust|glute|step-?up|abduction|アブダクション|adduction|アダクション|bridge|ブリッジ|clam|クラムシェル/i,'脚'],[/bench press|ベンチプレス|chest|チェスト|\bfly|フライ|push-?up|腕立て/i,'胸'],[/arnold|shoulder|ショルダー|overhead|\braise|レイズ|\bpress\b|プレス/i,'肩'],[/\bcurl|カール|\bdips?\b|ディップ|tricep|bicep|extension|エクステンション/i,'腕'],[/\brun|ラン|\bbike|バイク|\bwalk|ウォーク|\bjog/i,'有酸素']];
+function guessPart(name){for(const [re,pn] of GUESS)if(re.test(name)){const p=D.parts.find(x=>x.name===pn);if(p)return p.id}return (D.parts.find(p=>!PREP_HEAD.test(p.name))||D.parts[0])?.id}
 function menuCells(text,html){
   if(html&&/<t[dh][\s>]/i.test(html)){
     const doc=new DOMParser().parseFromString(html,'text/html');
@@ -907,24 +972,37 @@ function prepItem(raw,href,linkText){
   return {kind:'prep',on:true,no:'',name,href:href||'',tw:null,tr:rn?+rn[1]:null,ts:sn?+sn[1]:null,rx:rest,partId:prepPartId(false),exist:!!exist};
 }
 function prepPartId(create){let p=D.parts.find(x=>PREP_HEAD.test(x.name));if(!p&&create){p={id:uid(),name:'プレパレーション',color:'#6B7280'};D.parts.unshift(p)}return p?p.id:'__prep'}
+const cleanHead=t=>String(t||'').replace(/^#+\s*/,'').replace(/\*\*|__/g,'').replace(/[\s　]+/g,' ').trim().slice(0,40);
 function parseMenuAll(text,html){
-  const prep=[];let tText=text,tHtml=html;
-  if(html&&/<li[\s>]/i.test(html)){
-    const doc=new DOMParser().parseFromString(html,'text/html');
-    doc.querySelectorAll('li').forEach(li=>{if(li.closest('table'))return;const a=li.querySelector('a[href^="http"]');const it=prepItem(li.textContent,a?a.getAttribute('href'):'',a?a.textContent:'');if(it)prep.push(it);li.remove()});
-    tHtml=/<t[dh][\s>]/i.test(html)?doc.body.innerHTML:'';
-    tText=tHtml?doc.body.innerText||doc.body.textContent:'';
+  const prep=[],secs=[];
+  const addSec=(name,rows)=>{rows=rows.filter(r=>!PREP_HEAD.test(r.name));if(rows.length)secs.push({name:cleanHead(name),rows})};
+  if(html&&/<(li|table)[\s>]/i.test(html)){
+    const doc=new DOMParser().parseFromString(html,'text/html');let head='';
+    doc.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,div,li,table').forEach(el=>{
+      const tag=el.tagName;
+      if(tag==='TABLE'){if(el.parentElement&&el.parentElement.closest('table'))return;addSec(head,parseMenu('',el.outerHTML));return}
+      if(el.closest('table'))return;
+      if(tag==='LI'){const a=el.querySelector('a[href^="http"]');const it=prepItem(el.textContent,a?a.getAttribute('href'):'',a?a.textContent:'');if(it)prep.push(it);return}
+      if(el.closest('li'))return;
+      if(/^H\d$/.test(tag)){head=el.textContent;return}
+      if(el.querySelector('p,div,li,table,h1,h2,h3,h4,h5,h6'))return;
+      const t=el.textContent.trim();if(t&&t.length<=40)head=t;
+    });
+    if(!prep.length&&!secs.length)addSec('',parseMenu(text,html));
   }else{
     const lines=String(text||'').replace(/\r/g,'').split('\n');
-    const bullet=/^\s*([*\-・•●◦▪︎]|\d+[.)])\s+/;
-    if(lines.some(l=>bullet.test(l))){
-      const keep=[];lines.forEach(l=>{if(bullet.test(l)){const it=prepItem(l.replace(bullet,''));if(it)prep.push(it)}else keep.push(l)});
-      const rest=keep.filter(l=>l.trim()&&!PREP_HEAD.test(l.trim()));
-      tText=rest.some(l=>l.includes('\t')||l.trim().startsWith('|'))||rest.some(l=>HDR.name.test(l))?rest.join('\n'):'';
-    }
+    const bullet=/^\s*([*\-・•●◦▪︎]|\d+[.)])\s+/,isTbl=l=>l.includes('\t')||l.trim().startsWith('|');
+    if(lines.some(l=>bullet.test(l))||lines.some(isTbl)){
+      let head='',blk=[];const flush=()=>{if(blk.length){addSec(head,parseMenu(blk.join('\n'),''));blk=[]}};
+      for(const l of lines){if(!l.trim())continue;
+        if(bullet.test(l)){flush();const it=prepItem(l.replace(bullet,''));if(it)prep.push(it)}
+        else if(isTbl(l))blk.push(l);
+        else{flush();head=l}}
+      flush();
+    }else addSec('',parseMenu(text,''));
   }
-  const main=(tText||tHtml)?parseMenu(tText,tHtml).map(r=>({...r,kind:'main'})):[];
-  return [...prep,...main.filter(r=>!PREP_HEAD.test(r.name))];
+  const names=secs.map((x,i)=>x.name||(secs.length>1?'メニュー'+'ABCDEFGH'[i]:''));
+  return {rows:[...prep.map(r=>({...r,sec:-1})),...secs.flatMap((x,i)=>x.rows.map(r=>({...r,kind:'main',sec:i})))],names};
 }
 function parseMenu(text,html){
   const rows=menuCells(text,html);let col=null,start=0;
@@ -951,21 +1029,27 @@ function menuRowHTML(r,i){
     ${prep?'':`<label class="menu-partrow small muted">部位 <select class="plain menu-part" id="mp${i}" data-f="menuPart" data-i="${i}" aria-label="部位">${D.parts.filter(p=>!PREP_HEAD.test(p.name)).map(p=>`<option value="${p.id}"${p.id===r.partId?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`}</div></div>`;
 }
 function sheetMenuImport(s){
-  const rows=s.rows||[],n=rows.filter(r=>r.on).length;
-  const idx=rows.map((r,i)=>[r,i]),pr=idx.filter(([r])=>r.kind==='prep'),mn=idx.filter(([r])=>r.kind!=='prep');
-  let h=`<div class="form"><p class="small muted" style="margin:0">トレーナーから届いたメニュー（Notion・スプレッドシート・メールなど）をコピーして貼り付けてください。<b>箇条書きはプレパレーション</b>、<b>表はトレーニングメニュー</b>として読み取ります。両方まとめて貼り付けてもOKです。</p>
+  const rows=s.rows||[],n=rows.filter(r=>r.on).length,secs=s.secs||[];
+  const idx=rows.map((r,i)=>[r,i]),pr=idx.filter(([r])=>r.kind==='prep');
+  const multi=!s.target&&secs.length>1,src=latestPrepProgram();
+  let h=`<div class="form"><p class="small muted" style="margin:0">トレーナーから届いたメニュー（Notionのページなど）をコピーして貼り付けてください。<b>箇条書きはプレパレーション</b>、<b>表はトレーニングメニュー</b>として読み取ります。ページ全体をまとめて貼り付けると、表ごと（メニューA・Bなど）に別のプログラムを作り、それぞれにプレパレーションを含めます。</p>
     <label class="f">取り込み先<select class="plain" id="menuTarget" data-f="menuTarget"><option value="">新しいプログラムを作る</option>${D.programs.map(p=>`<option value="${p.id}"${s.target===p.id?' selected':''}>「${esc(p.name)}」に追加</option>`).join('')}</select></label>
-    ${s.target?'':`<label class="f">プログラム名<input class="plain" id="menuName" data-f="menuName" value="${esc(s.name)}"></label>`}
+    ${s.target||multi?'':`<label class="f">プログラム名<input class="plain" id="menuName" data-f="menuName" value="${esc(s.name)}"></label>`}
     <label class="f">メニューを貼り付け<textarea class="plain" id="menuPaste" placeholder="ここを長押し →「ペースト」" style="min-height:${rows.length?64:130}px;font-size:13px">${esc(s.raw||'')}</textarea></label>
     <button class="btn ${rows.length?'ghost':''} block" data-act="menuParse">貼り付けた内容を読み取る</button>`;
   if(s.tried&&!rows.length)h+=`<p class="auth-msg" style="margin:0">種目を読み取れませんでした。表なら見出し（種目・重さ・回数・セット）ごと、箇条書きなら「・」や「*」の行ごとコピーしてください。</p>`;
-  if(pr.length)h+=`<div><div class="label" style="margin-bottom:6px">プレパレーション（${pr.length}種目）— 記録ではチェックを付けるだけの種目になります</div><div class="list">${pr.map(([r,i])=>menuRowHTML(r,i)).join('')}</div></div>`;
-  if(mn.length)h+=`<div><div class="label" style="margin-bottom:6px">トレーニング（${mn.length}種目）— 部位は自動で推測しています。違っていたら直してください</div><div class="list">${mn.map(([r,i])=>menuRowHTML(r,i)).join('')}</div>
-      <p class="small muted" style="margin:8px 0 0">「6〜10回」のような幅のある指定は、回数は下限・セットは上限を目標にします。「10rm」のように重さが決まっていないものは重量の目標なしで登録し、指定の文言はそのまま種目に表示します。</p></div>`;
-  if(rows.length)h+=`<button class="btn primary block" data-act="menuDo"${n?'':' disabled'}>${n}種目を${s.target?'プログラムに追加':'取り込んでプログラムを作る'}</button>`;
+  if(pr.length)h+=`<div><div class="label" style="margin-bottom:6px">プレパレーション（${pr.length}種目）— 記録ではチェックを付けるだけの種目になります${multi?'。すべてのプログラムに入ります':''}</div><div class="list">${pr.map(([r,i])=>menuRowHTML(r,i)).join('')}</div></div>`;
+  else if(rows.length&&!s.target&&src)h+=`<label class="switch card" style="padding:12px 14px"><span>プレパレーションも入れる<br><span class="small muted">「${esc(src.name)}」と同じもの</span></span><input type="checkbox" id="incPrep" data-f="incPrep"${s.incPrep?' checked':''}></label>`;
+  secs.forEach((nm,si)=>{const mn=idx.filter(([r])=>r.kind!=='prep'&&r.sec===si);if(!mn.length)return;
+    h+=`<div>${multi?`<label class="f" style="margin-bottom:8px">プログラム名<input class="plain" id="secName${si}" data-f="secName" data-i="${si}" value="${esc(nm)}"></label>`:''}<div class="label" style="margin-bottom:6px">トレーニング${multi?'':''}（${mn.length}種目）— 部位は自動で推測しています。違っていたら直してください</div><div class="list">${mn.map(([r,i])=>menuRowHTML(r,i)).join('')}</div></div>`});
+  if(rows.some(r=>r.kind!=='prep'))h+=`<p class="small muted" style="margin:0">「6〜10回」のような幅のある指定は、回数は下限・セットは上限を目標にします。「10rm」のように重さが決まっていないものは重量の目標なしで登録し、指定の文言はそのまま種目に表示します。</p>`;
+  if(rows.length)h+=`<button class="btn primary block" data-act="menuDo"${n?'':' disabled'}>${s.target?`${n}種目をプログラムに追加`:multi?`${secs.length}つのプログラムを作る（${n}種目）`:`${n}種目を取り込んでプログラムを作る`}</button>`;
   return ['メニュー取り込み',h+`</div>`];
 }
-function runMenuParse(text,html){const s=st.sheet;s.raw=text;s.rows=parseMenuAll(text,html);s.tried=true;renderSheet()}
+function latestPrepProgram(){return D.programs.find(p=>p.items.some(it=>isPrep(exById(it.ex))))}
+function runMenuParse(text,html){const s=st.sheet,r=parseMenuAll(text,html);s.raw=text;s.rows=r.rows;s.secs=r.names;s.tried=true;
+  if(r.names.length===1&&r.names[0])s.name=r.names[0];
+  s.incPrep=!r.rows.some(x=>x.kind==='prep')&&!!latestPrepProgram();renderSheet()}
 function newEntry(ex){const en={id:uid(),ex:ex.id,sets:[],memo:''};if(ex.type==='cardio')en.c={};if(isPrep(ex))en.chk=Array(Math.max(1,ex.ts||1)).fill(false);return en}
 function addProgramToDay(pg){
   const day=getDay(st.date,true);let n=0;
@@ -1017,7 +1101,8 @@ function reportData(from,to){
     if(e.type==='cardio'){o.cardio=true;o.lastText=cardioPlain(last.en.c);return o}
     o.lastText=setsText(last.en.sets);o.lastSets=last.en.sets;
     let best=null;m.sessions.forEach(({d,en})=>en.sets.forEach(s=>{if(s.a||s.r===''||s.r==null)return;const v=e1rm(+s.w,+s.r);if(!best||v>best.v||(v===best.v&&(+s.w>+best.s.w||(+s.w===+best.s.w&&+s.r>+best.s.r))))best={v,s,d}}));
-    o.best=best;o.rmFirst=topRm(first.en);o.rmLast=topRm(last.en);o.multi=m.sessions.length>1;
+    o.best=best;o.rmFirst=topRm(first.en);o.rmLast=topRm(last.en);o.multi=m.sessions.length>1;o.feel=feelText(last.en);
+    o.recent=m.sessions.slice(-4).map(({d,en})=>({d,t:setsText(en.sets),f:feelText(en),memo:en.memo||''}));
     return o;
   })})).filter(g=>g.items.length);
   const bw=Object.keys(D.body).sort().filter(d=>d>=from&&d<=to);
@@ -1047,7 +1132,7 @@ function reportText(R){
   if(!R.groups.length)L.push('  （この期間の記録はありません）');
   R.groups.forEach(g=>{L.push(`［${g.p.name}］`);g.items.forEach(o=>{
     L.push(`・${o.ex.name}（${o.n}回実施）`);
-    L.push(`  直近 ${md(o.lastDate)}：${o.lastText}`);
+    L.push(`  直近 ${md(o.lastDate)}：${o.lastText}${o.feel?`（${o.feel}）`:''}`);
     if(!o.cardio){
       if(o.best)L.push(`  期間ベスト：${wPlain(o.best.s.w)}×${o.best.s.r}回（${md(o.best.d)}）`);
       const dl=rmDelta(o);if(dl)L.push(`  推定1RM：${dl}`);
@@ -1057,8 +1142,21 @@ function reportText(R){
   })});
   return L.join('\n');
 }
+function nextProgram(){const shown=D.programs.slice(0,4);if(!shown.length)return null;return shown.reduce((a,p)=>(p.lastUsed||'')<(a.lastUsed||'')?p:a,shown[0])}
+function claudeText(R){
+  const np=nextProgram(),nx=new Set(np?np.items.map(i=>i.ex):[]);
+  const L=[`【次回の重量の相談】${md(todayStr())}`,np?`次回の予定：${np.name}（★の種目）`:'','コーチのルール：「XXkg〜」の種目は、回数とセット数をクリアできれば重さを上げてよい','きつさ（余裕／ちょうど／ギリギリ）と違和感は、種目ごとの自己評価。アプリの推奨は単純な機械的計算。',`対象期間：${md(R.from)}〜${md(R.to)}（${R.n}回／週あたり約${r1(R.perWeek)}回）`,''];
+  R.groups.forEach(g=>{const its=g.items.filter(o=>!o.cardio);if(!its.length)return;L.push(`［${g.p.name}］`);its.forEach(o=>{
+    const e=o.ex,t=targetPlain(e),rc=recommend(e,addDays(todayStr(),1));
+    L.push(`・${nx.has(e.id)?'★':''}${e.name}${t||e.rx?`（${[t&&'目標 '+t,e.rx&&'コーチ指定 '+e.rx].filter(Boolean).join('／')}）`:''}`);
+    o.recent.forEach(x=>L.push(`  ${md(x.d)} ${x.t}${x.f?`（${x.f}）`:''}${x.memo?` メモ：${x.memo}`:''}`));
+    if(rc)L.push(`  アプリの推奨：${rc.aw!=null?'アシスト'+fw(rc.aw)+U():fw(rc.w)+U()}（${rc.kind==='up'?'アップ':rc.kind==='start'?'開始':'据え置き'}）`);
+  })});
+  L.push('','この内容から、次回の各種目の重量（と回数）を提案してください。違和感がある種目は注意点も。');
+  return L.filter((x,i)=>x!==''||i>0).join('\n').replace(/\n{3,}/g,'\n\n');
+}
 function sheetReport(s){
-  const R=reportData(s.from,s.to);st.repText=reportText(R);st.repSum=summaryText(R);
+  const R=reportData(s.from,s.to);st.repText=reportText(R);st.repSum=summaryText(R);st.repAI=claudeText(R);
   const ctl=`<div class="rep-ctl"><label class="f small muted">開始日（前回の指導日など）<input class="plain" type="date" id="repFrom" data-f="repFrom" value="${s.from}" max="${s.to}"></label><label class="f small muted">終了日<input class="plain" type="date" id="repTo" data-f="repTo" value="${s.to}" min="${s.from}"></label></div>
     <div class="row" style="gap:8px;margin-top:8px"><button class="btn ghost grow" style="height:34px" data-act="repPreset" data-v="month">直近1か月</button><button class="btn ghost grow" style="height:34px" data-act="repPreset" data-v="2w">直近2週間</button></div>`;
   let h=ctl+`<div class="rep">
@@ -1075,8 +1173,8 @@ function sheetReport(s){
       <div class="rep-last"><span class="small muted">直近 ${md(o.lastDate)}</span><span class="num">${esc(o.lastText)}</span></div>
       <div class="rep-sub">${o.best?`<span>期間ベスト <b class="num">${wPlain(o.best.s.w)}×${o.best.s.r}</b></span>`:''}${dl?`<span>推定1RM <b class="num">${dl}</b></span>`:''}${t?`<span>目標 <b class="num">${esc(t)}</b></span>`:''}</div>
       ${o.memo?`<div class="s">メモ：${esc(o.memo)}</div>`:''}</div></div>`}).join('')}</div>`});
-  h+=`</div><div class="rep-actions"><button class="btn primary grow" data-act="repCopySum">${I.copy}要約版をコピー</button><button class="btn grow" data-act="repCopy">${I.copy}詳細版をコピー</button></div>
-    <p class="small muted" style="margin:8px 0 0">コピーした文章は、LINEやメールにそのまま貼り付けてコーチに送れます。</p>
+  h+=`</div><div class="rep-actions"><button class="btn primary grow" data-act="repCopySum">${I.copy}要約版</button><button class="btn grow" data-act="repCopy">${I.copy}詳細版</button><button class="btn grow" data-act="repCopyAI">${I.copy}Claude相談用</button></div>
+    <p class="small muted" style="margin:8px 0 0">要約版・詳細版はコーチに送る用です。「Claude相談用」は、そのままClaudeに貼り付けるだけで次回の重量の相談ができる文章です（依頼文・コーチのルール・直近4回の記録ときつさ・次回のプログラム入り）。</p>
     <details class="rep-days" open><summary>要約版の文章</summary><textarea class="plain" id="sumtext" readonly style="min-height:200px;font-size:12.5px;margin-top:8px">${esc(st.repSum)}</textarea></details>
     <details class="rep-days"><summary>詳細版の文章</summary><textarea class="plain" id="exptext" readonly style="min-height:220px;font-size:12px;margin-top:8px">${esc(st.repText)}</textarea></details>`;
   return ['コーチ用レポート',h];
@@ -1123,7 +1221,10 @@ function sheetEx(s){
       <label class="f">重量（${U()}）<span class="field"><input id="xw" inputmode="decimal" value="${esc(fw(e.tw))}" placeholder="—"></span></label>
       <label class="f">回数<span class="field"><input id="xr" inputmode="numeric" value="${esc(e.tr??'')}" placeholder="—"></span></label>
       <label class="f">セット数<span class="field"><input id="xs" inputmode="numeric" value="${esc(e.ts??'')}" placeholder="—"></span></label>
-    </div><p class="small muted" style="margin:6px 0 0">目標を満たしたセットには ✓ が付きます。自重種目は重量を 0 に。</p></div>
+    </div><p class="small muted" style="margin:6px 0 0">目標を満たしたセットには ✓ が付きます。自重種目は重量を 0 に。</p>
+    <div class="grid3" style="grid-template-columns:1fr auto;align-items:end;margin-top:10px"><label class="f">クリアしたら増やす幅（${U()}）<span class="field"><input id="xinc" inputmode="decimal" value="${esc(e.inc!=null&&e.inc!==''?fw(e.inc):'')}" placeholder="${fw(incOf(e.name?e:{name:''}))}"></span></label>
+    <label class="row small" style="gap:6px;padding-bottom:10px"><input type="checkbox" id="xrec"${e.rec===false?'':' checked'} style="width:20px;height:20px;accent-color:var(--accent)">推奨重量を出す</label></div>
+    <p class="small muted" style="margin:4px 0 0">空欄ならダンベル系 1、それ以外 2.5 で計算します（ダンベルは片手の重さ）。</p></div>
     <div><div class="label" style="margin-bottom:6px">解説動画（YouTubeなどのURL・3つまで）</div><div class="vid-rows">${[0,1,2].map(i=>{const v=vs[i]||{u:'',t:''},id=ytId(v.u);return `<div class="vid-row"><span class="no num">${i+1}</span><div class="vid-in"><input class="plain" id="xy${i}" type="url" inputmode="url" value="${esc(v.u)}" placeholder="https://youtu.be/..." aria-label="動画${i+1}のURL"><input class="plain" id="xl${i}" value="${esc(v.t||'')}" maxlength="20" placeholder="表示名（任意）例：コーチ推奨" aria-label="動画${i+1}の表示名">${v.u?`<a class="vid-open" href="${esc(v.u)}" target="_blank" rel="noopener">${id?`<img class="thumb" src="https://i.ytimg.com/vi/${id}/mqdefault.jpg" alt="" onerror="this.remove()">`:''}<span class="yt">${I.play}開く</span></a>`:''}</div></div>`}).join('')}</div>
     <a class="linkish" style="display:inline-block;margin-top:8px" href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">YouTubeで「${esc(e.name||'種目名')}」を探す</a></div>
     <label class="f">トレーナー指定（任意）<input class="plain" id="xrx" value="${esc(e.rx||'')}" placeholder="例：30秒 × 2セット"></label>
@@ -1271,12 +1372,16 @@ const A={
   openCopy:()=>openSheet({type:'copy'}),
   copyFrom:el=>{const n=copyEntries(el.dataset.d);closeSheet();render();toast(`${md(el.dataset.d)} の ${n}種目をコピーしました`)},
   addSet:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const last=en.sets.at(-1);let s;
-    if(last){s={w:last.w,r:last.r,a:false};if(last.a&&last.aw!==''&&last.aw!=null){s.a=true;s.aw=last.aw}}else if(ex.tw!=null||ex.tr!=null)s={w:ex.tw??'',r:ex.tr??'',a:false};else{const lr=lastRecord(ex.id,st.date);s=lr&&lr.en.sets[0]?{w:lr.en.sets[0].w,r:lr.en.sets[0].r,a:false}:{w:'',r:'',a:false}}
+    if(last){s={w:last.w,r:last.r,a:false};if(last.a&&last.aw!==''&&last.aw!=null){s.a=true;s.aw=last.aw}}else if(recommend(ex,st.date)){const r=recommend(ex,st.date);s=r.aw!=null?{w:r.w||0,r:ex.tr,a:true,aw:r.aw}:{w:r.w,r:ex.tr,a:false}}else if(ex.tw!=null||ex.tr!=null)s={w:ex.tw??'',r:ex.tr??'',a:false};else{const lr=lastRecord(ex.id,st.date);s=lr&&lr.en.sets[0]?{w:lr.en.sets[0].w,r:lr.en.sets[0].r,a:false}:{w:'',r:'',a:false}}
     en.sets.push(s);save();render();if(D.settings.autoTimer&&last)startTimer()},
+  feel:el=>{const en=findEnt(el.dataset.id);en.feel=en.feel===el.dataset.v?'':el.dataset.v;save();render()},
+  pain:el=>{const en=findEnt(el.dataset.id);en.pain=!en.pain;save();render()},
   chk:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];const i=+el.dataset.i;en.chk[i]=!en.chk[i];save();render()},
   chkAdd:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];en.chk.push(false);save();render()},
   delSet:el=>{const en=findEnt(el.dataset.id);en.sets.splice(+el.dataset.i,1);save();render()},
   assist:el=>{const en=findEnt(el.dataset.id);const s=en.sets[+el.dataset.i];s.a=!s.a;save();render()},
+  fillRec:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex),r=recommend(ex,st.date);if(!r)return;const n=Math.max(ex.ts||3,en.sets.length);
+    for(let i=0;i<n;i++){const o=en.sets[i]||{};en.sets[i]=r.aw!=null?{w:r.w||0,r:o.r!==''&&o.r!=null&&en.sets[i]?o.r:ex.tr,a:true,aw:r.aw}:{w:r.w,r:o.r!==''&&o.r!=null&&en.sets[i]?o.r:ex.tr,a:false}}save();render()},
   fillTarget:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const n=Math.max(ex.ts||1,en.sets.length);for(let i=0;i<n;i++){en.sets[i]={w:ex.tw??en.sets[i]?.w??'',r:ex.tr??en.sets[i]?.r??'',a:en.sets[i]?.a||false}}save();render()},
   entryMenu:el=>openSheet({type:'entryMenu',id:el.dataset.id}),
   moveEnt:el=>{const e=D.logs[st.date].e,i=e.findIndex(x=>x.id===el.dataset.id),j=i+ +el.dataset.n;if(j<0||j>=e.length)return;[e[i],e[j]]=[e[j],e[i]];save();closeSheet();render()},
@@ -1292,7 +1397,7 @@ const A={
     const num=v=>{v=v.trim();if(v==='')return null;const n=parseFloat(v.replace(',','.'));return isNaN(n)?null:n};
     const w=num($('#xw').value),r=num($('#xr').value),s=num($('#xs').value);
     const yts=[0,1,2].map(i=>{let u=$('#xy'+i).value.trim();if(u&&!/^https?:\/\//i.test(u))u='https://'+u;return {u,t:$('#xl'+i).value.trim()}}).filter(v=>v.u);const yt=yts[0]?yts[0].u:'';
-    const data={name,partId:$('#xp').value,type:$('#xt').value,tw:w==null?null:toKg(w),tr:r==null?null:Math.round(r),ts:s==null?null:Math.round(s),yt,yts,rx:$('#xrx').value.trim(),memo:$('#xm').value.trim()};
+    const data={name,partId:$('#xp').value,type:$('#xt').value,tw:w==null?null:toKg(w),tr:r==null?null:Math.round(r),ts:s==null?null:Math.round(s),inc:(()=>{const v=num($('#xinc').value);return v==null?null:toKg(v)})(),rec:$('#xrec').checked,yt,yts,rx:$('#xrx').value.trim(),memo:$('#xm').value.trim()};
     const fromAdd=st.sheet.fromAdd;let id=el.dataset.id;
     if(id){const e=exById(id);Object.assign(e,data);delete e.sampleT}else{id=uid();D.exercises.push({id,...data})}
     save();
@@ -1316,20 +1421,28 @@ const A={
       if(!e){e={id:uid(),partId:pid,name:r.name,type:r.kind==='prep'?'prep':partById(pid)?.name==='有酸素'?'cardio':'weight',tw:null,tr:null,ts:null,yt:'',yts:[],memo:''};D.exercises.push(e)}else{e.partId=pid;if(r.kind==='prep')e.type='prep'}
       if(r.tw!=null)e.tw=r.tw;else if(r.rx)e.tw=null;if(r.tr!=null)e.tr=r.tr;if(r.ts!=null)e.ts=r.ts;if(r.rx)e.rx=r.rx;delete e.sampleT;
       if(r.href){const v=vids(e).filter(x=>x.u!==r.href);e.yts=[{u:r.href,t:''},...v].slice(0,3);e.yt=e.yts[0].u}
-      items.push({ex:e.id,no:r.no,rx:r.rx,kind:r.kind||'main'})});
+      items.push({ex:e.id,no:r.no,rx:r.rx,kind:r.kind||'main',sec:r.sec})});
     let pg=s.target&&D.programs.find(p=>p.id===s.target);
-    if(pg){const ids=new Set(items.map(x=>x.ex));pg.items=[...items.filter(x=>x.kind==='prep'),...pg.items.filter(x=>!ids.has(x.ex)),...items.filter(x=>x.kind!=='prep')]}
-    else{pg={id:uid(),name:(s.name||'').trim()||'プログラム '+md(todayStr()),date:todayStr(),items};D.programs.unshift(pg)}
-    save();st.view='ex';render();openSheet({type:'program',id:pg.id});toast(`${items.length}種目を取り込みました`)},
+    if(pg){const ids=new Set(items.map(x=>x.ex));pg.items=[...items.filter(x=>x.kind==='prep'),...pg.items.filter(x=>!ids.has(x.ex)),...items.filter(x=>x.kind!=='prep')].map(({sec,...x})=>x);save();st.view='ex';render();openSheet({type:'program',id:pg.id});toast(`${items.length}種目を追加しました`);return}
+    const strip=({sec,...x})=>x;let pre=items.filter(x=>x.kind==='prep').map(strip);
+    if(!pre.length&&s.incPrep){const src=latestPrepProgram();if(src)pre=src.items.filter(it=>isPrep(exById(it.ex))).map(x=>({...x}))}
+    const secIdx=[...new Set(items.filter(x=>x.kind!=='prep').map(x=>x.sec))],batch=uid(),made=[];
+    const mk=(name,its)=>({id:uid(),name:(name||'').trim()||'プログラム '+md(todayStr()),date:todayStr(),batch,items:its});
+    if(!secIdx.length)made.push(mk(s.name,pre));
+    else secIdx.forEach(si=>made.push(mk(secIdx.length>1?(s.secs[si]||'メニュー'+'ABCDEFGH'[si]):(s.name||s.secs[si]),[...pre.map(x=>({...x})),...items.filter(x=>x.kind!=='prep'&&x.sec===si).map(strip)])));
+    D.programs.unshift(...made);save();st.view='record';window.scrollTo(0,0);render();closeSheet();
+    toast(made.length>1?`${made.length}つのプログラムを作りました`:`「${made[0].name}」を作りました`)},
   menuAddTo:el=>openSheet({type:'menuImport',name:'',rows:[],raw:'',target:el.dataset.id}),
   openProgram:el=>openSheet({type:'program',id:el.dataset.id}),
   programPick:()=>{if(D.programs.length===1)openSheet({type:'program',id:D.programs[0].id});else openSheet({type:'programPick'})},
-  programAdd:el=>{const pg=D.programs.find(p=>p.id===el.dataset.id);const n=addProgramToDay(pg);closeSheet();st.view='record';window.scrollTo(0,0);render();toast(n?`${n}種目を追加しました`:'すべて追加済みです')},
+  quickProgram:el=>{const pg=D.programs.find(p=>p.id===el.dataset.id);const n=addProgramToDay(pg);pg.lastUsed=st.date;save();render();window.scrollTo(0,0);toast(`「${pg.name}」の${n}種目を追加しました`)},
+  programAdd:el=>{const pg=D.programs.find(p=>p.id===el.dataset.id);const n=addProgramToDay(pg);pg.lastUsed=st.date;save();closeSheet();st.view='record';window.scrollTo(0,0);render();toast(n?`${n}種目を追加しました`:'すべて追加済みです')},
   programDel:el=>{const pg=D.programs.find(p=>p.id===el.dataset.id);confirmSheet('プログラムを削除しますか？',`「${esc(pg.name)}」を削除します。種目・目標・これまでの記録は残ります。`,'削除する',()=>{D.programs=D.programs.filter(p=>p.id!==pg.id);save();closeSheet();render()})},
   openReport:()=>{const to=todayStr();openSheet({type:'report',from:monthAgo(to),to})},
   repPreset:el=>{const to=todayStr();st.sheet.to=to;st.sheet.from=el.dataset.v==='2w'?addDays(to,-13):monthAgo(to);renderSheet()},
   repCopy:()=>copyText(st.repText),
   repCopySum:()=>copyText(st.repSum),
+  repCopyAI:()=>copyText(st.repAI),
 
   demo:()=>startDemo(),
   exitDemo:()=>{st.demo=false;D=null;closeSheet();if(!cfg){st.screen='setup';render()}else if(ses)startApp();else{st.screen='login';render()}},
@@ -1378,11 +1491,13 @@ document.addEventListener('input',ev=>{
   else if(f==='dbw'){const v=toKg(el.value);if(v==='')delete D.body[st.date];else D.body[st.date]=v;save()}
   else if(f==='rm'){st.rmw=$('#rmw').value;st.rmr=$('#rmr').value;$('#rmout').innerHTML=rmOut()}
   else if(f==='menuName'){st.sheet.name=el.value}
+  else if(f==='secName'){st.sheet.secs[+el.dataset.i]=el.value}
   else if(f==='rest'){const n=parseInt(el.value);if(n>0){D.settings.rest=n;save()}}
 });
 document.addEventListener('change',ev=>{
   const el=ev.target;
   if(el.dataset.f==='menuOn'){st.sheet.rows[+el.dataset.i].on=el.checked;renderSheet();return}
+  if(el.dataset.f==='incPrep'){st.sheet.incPrep=el.checked;return}
   if(el.dataset.f==='menuTarget'){st.sheet.target=el.value;renderSheet();return}
   if(el.dataset.f==='menuPart'){st.sheet.rows[+el.dataset.i].partId=el.value;return}
   if(el.dataset.f==='loudM'){D.settings.loudMode=el.checked;save();applyAudioSession();return}
