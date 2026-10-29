@@ -289,6 +289,18 @@ select.plain.menu-part{width:auto;min-width:120px;height:36px;font-size:14px;pad
 .feel-seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .pain{height:38px;padding:0 12px;border-radius:10px;border:1px dashed var(--ink-3);font-size:12.5px;color:var(--ink-2)}
 .pain[aria-pressed="true"]{border-style:solid;border-color:var(--pr);background:var(--pr-soft);color:var(--pr);font-weight:700}
+.bag-bar{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;font-weight:700;font-size:15px;box-shadow:var(--shadow);text-align:left}
+.bag-bar .grow{flex:1}
+.bag-bar .num{font-size:20px;color:var(--ink-2)}
+.bag-bar.done{border-color:var(--good)}
+.bag-bar.done .num{color:var(--good)}
+.pill.ok{background:var(--good-soft);color:var(--good)}
+.bag-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.bag-item{display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:700;text-align:left;overflow-wrap:anywhere}
+.bag-item .bx{width:26px;height:26px;flex:none;border-radius:7px;border:2px solid var(--ink-3);display:grid;place-items:center;font-size:16px;color:#fff}
+.bag-item[aria-pressed="true"]{background:var(--good-soft);border-color:var(--good)}
+.bag-item[aria-pressed="true"] .bx{background:var(--good);border-color:var(--good)}
+#bagForm .grow{flex:1;min-width:0}
 /* coach report */
 .rep-ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .rep-ctl label{display:flex;flex-direction:column;gap:4px}
@@ -546,7 +558,9 @@ async function doPull(){
 }
 function applyTheme(){const t=lsGet('kintore-theme'),r=document.documentElement;if(t==='light'||t==='dark')r.setAttribute('data-theme',t);else if(window.__kintoreOwnsTheme)r.removeAttribute('data-theme');window.__kintoreOwnsTheme=true;const m=document.querySelector('meta[name=theme-color]:not([media])');if(m)m.content=getComputedStyle(r).getPropertyValue('--bg').trim()}
 applyTheme();
-function fixData(){D.body=D.body||{};if(!Array.isArray(D.programs))D.programs=[];D.settings=Object.assign({unit:'kg',rest:90,autoTimer:true},D.settings)}
+const BAG_DEFAULT=['シューズ','靴下','タオル','AirPods','ドリンク','iPhone'];
+const BAG_OLD='シューズ,タオル,水筒,着替え,イヤホン,会員証';
+function fixData(){if(!D.bag||!Array.isArray(D.bag.items)||D.bag.items.map(i=>i.name).join(',')===BAG_OLD)D.bag={items:BAG_DEFAULT.map(n=>({id:uid(),name:n})),done:{}};if(!D.bag.done)D.bag.done={};D.body=D.body||{};if(!Array.isArray(D.programs))D.programs=[];D.settings=Object.assign({unit:'kg',rest:90,autoTimer:true},D.settings)}
 function sessionExpired(){
   stopTimer();stopCount();st.authOk=false;ses=null;lsSet(SES_KEY,null);st.screen='login';st.authMsg='ログインの有効期限が切れました。もう一度ログインしてください（未送信の記録は消えていません）';
   closeSheet();render();
@@ -677,6 +691,7 @@ function viewRecord(){
   if(st.demo)h+=`<div class="banner"><span><b>お試しモード</b> — 何も保存されません</span><button class="btn ghost" style="height:32px" data-act="exitDemo">ログイン画面へ</button></div>`;
   else if(D.sample)h+=`<div class="banner"><span><b>サンプル記録を表示中</b> — 操作感を試すための例です</span><button class="btn ghost" style="height:32px" data-act="clearSample">消して始める</button></div>`;
   if(!isToday)h+=`<div style="margin:-2px 0 10px;text-align:center"><button class="linkish" data-act="today">今日に戻る</button></div>`;
+  if(date>=todayStr())h+=bagBar(date);
   h+=`<div class="summary"><div><span class="label">種目</span><span class="v">${s.n}</span></div><div><span class="label">セット</span><span class="v">${s.sets}</span></div><div><span class="label">ボリューム</span><span class="v">${fvol(s.vol)}<small>${U()}</small></span></div></div>`;
   if(s.parts.length)h+=`<div class="parts-row">${s.parts.map(pid=>chip(partById(pid))).join('')}</div>`;
   if(!ents.length&&D.programs.length){
@@ -897,7 +912,8 @@ function targetText(e){if(e.tw==null&&e.tr==null&&e.ts==null)return '目標 未�
 function viewTools(){
   const t=todayStr();
   let h=`<header class="top"><h1>ツール・設定</h1></header>`;
-  h+=st.demo?`<section class="section" style="margin-top:4px"><h2>アカウント</h2><div class="card row"><span class="grow">お試しモード（保存されません）</span><button class="btn primary" data-act="exitDemo">ログイン画面へ</button></div></section>`
+  h+=`<section class="section" style="margin-top:4px"><h2>持ち物チェックリスト</h2><div class="card row" style="gap:12px;flex-wrap:wrap"><span class="grow small muted" style="min-width:180px">${D.bag.items.length?esc(D.bag.items.map(i=>i.name).join('・')):'未登録'}</span><button class="btn ghost" data-act="bagEditOpen">編集</button></div></section>`;
+  h+=st.demo?`<section class="section"><h2>アカウント</h2><div class="card row"><span class="grow">お試しモード（保存されません）</span><button class="btn primary" data-act="exitDemo">ログイン画面へ</button></div></section>`
    :`<section class="section" style="margin-top:4px"><h2>アカウントと同期</h2><div class="list">
     <div class="switch"><span class="muted small">ログイン中</span><span style="overflow-wrap:anywhere;text-align:right">${esc(ses?.user?.email)}</span></div>
     <div class="switch"><span class="muted small">状態</span><span data-sync="full" style="text-align:right">${syncHTML('full')}</span></div>
@@ -1067,6 +1083,30 @@ function sheetProgram(s){
     <button class="btn ghost block" data-act="menuAddTo" data-id="${pg.id}">メニューを貼り付けて追加（プレパレーションなど）</button>
     <button class="btn danger block" data-act="programDel" data-id="${pg.id}">このプログラムを削除（種目と記録は残ります）</button></div>`];
 }
+/* ---------- bag checklist ---------- */
+const bagDone=date=>(D.bag.done[date]||[]).filter(id=>D.bag.items.some(i=>i.id===id));
+const BAG_ICON='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
+function bagBar(date){
+  const n=D.bag.items.length;if(!n)return '';const d=bagDone(date).length,all=d===n;
+  return `<button class="bag-bar${all?' done':''}" data-act="bagOpen">${BAG_ICON}<span class="grow">持ち物チェック</span><span class="num">${d}/${n}</span>${all?'<span class="pill ok">OK</span>':''}</button>`;
+}
+function sheetBag(s){
+  const done=new Set(bagDone(st.date)),n=D.bag.items.length;
+  let h=`<div class="form">`;
+  if(!s.edit){
+    h+=`<p class="small muted" style="margin:0">${md(st.date)} の持ち物。入れたものをタップしてください（チェックは日ごとにリセットされます）。</p>
+    <div class="bag-list">${D.bag.items.map(i=>`<button class="bag-item" data-act="bagTog" data-id="${i.id}" aria-pressed="${done.has(i.id)}"><span class="bx">${done.has(i.id)?'✓':''}</span><span>${esc(i.name)}</span></button>`).join('')||'<div class="empty">持ち物が登録されていません</div>'}</div>
+    <div class="row" style="gap:8px"><button class="btn ghost grow" data-act="bagClear"${done.size?'':' disabled'}>チェックを外す</button><button class="btn ghost grow" data-act="bagEdit">リストを編集</button></div>`;
+  }else{
+    h+=`<div class="list">${D.bag.items.map((i,k)=>`<div class="li"><span class="grow t">${esc(i.name)}</span>
+      <button class="icon-btn" style="width:32px;height:32px" data-act="bagMove" data-id="${i.id}" data-n="-1" aria-label="上へ"${k===0?' disabled':''}>${I.up}</button>
+      <button class="icon-btn" style="width:32px;height:32px" data-act="bagMove" data-id="${i.id}" data-n="1" aria-label="下へ"${k===n-1?' disabled':''}>${I.down}</button>
+      <button class="del" data-act="bagDel" data-id="${i.id}" aria-label="${esc(i.name)}を削除">${I.x}</button></div>`).join('')}</div>
+    <form id="bagForm" class="row" style="gap:8px"><input class="plain grow" id="bagNew" placeholder="追加する持ち物（例：リフティングベルト）" maxlength="30"><button class="btn primary" type="submit">追加</button></form>
+    <button class="btn block" data-act="bagEdit">完了</button>`;
+  }
+  return [s.edit?'持ち物リストを編集':`持ち物チェック ${done.size}/${n}`,h+`</div>`];
+}
 function sheetProgramPick(){
   return ['プログラムから追加',`<div class="list">${D.programs.map(p=>`<button class="li" data-act="openProgram" data-id="${p.id}"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${p.items.length}種目${p.date?'・'+md(p.date)+' 取り込み':''}</div></div>${I.right.replace('<svg','<svg width="18" height="18"')}</button>`).join('')}</div>`];
 }
@@ -1187,7 +1227,7 @@ function renderSheet(){
   const host=$('#sheethost');const s=st.sheet;
   if(!s){host.innerHTML='';document.body.style.overflow='';return}
   document.body.style.overflow='hidden';
-  const f={add:sheetAdd,copy:sheetCopy,exEdit:sheetEx,partEdit:sheetPart,entryMenu:sheetEntryMenu,confirm:sheetConfirm,exportF:sheetExport,share:sheetShare,import:sheetImport,conflict:sheetConflict,report:sheetReport,menuImport:sheetMenuImport,program:sheetProgram,programPick:sheetProgramPick}[s.type];
+  const f={add:sheetAdd,copy:sheetCopy,exEdit:sheetEx,partEdit:sheetPart,entryMenu:sheetEntryMenu,confirm:sheetConfirm,exportF:sheetExport,share:sheetShare,import:sheetImport,conflict:sheetConflict,report:sheetReport,bag:sheetBag,menuImport:sheetMenuImport,program:sheetProgram,programPick:sheetProgramPick}[s.type];
   const [title,body]=f(s);
   host.innerHTML=`<div class="scrim" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="icon-btn" data-act="closeSheet" aria-label="閉じる">${I.x}</button></div>${body}</div>`;
 }
@@ -1374,6 +1414,15 @@ const A={
   addSet:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const last=en.sets.at(-1);let s;
     if(last){s={w:last.w,r:last.r,a:false};if(last.a&&last.aw!==''&&last.aw!=null){s.a=true;s.aw=last.aw}}else if(recommend(ex,st.date)){const r=recommend(ex,st.date);s=r.aw!=null?{w:r.w||0,r:ex.tr,a:true,aw:r.aw}:{w:r.w,r:ex.tr,a:false}}else if(ex.tw!=null||ex.tr!=null)s={w:ex.tw??'',r:ex.tr??'',a:false};else{const lr=lastRecord(ex.id,st.date);s=lr&&lr.en.sets[0]?{w:lr.en.sets[0].w,r:lr.en.sets[0].r,a:false}:{w:'',r:'',a:false}}
     en.sets.push(s);save();render();if(D.settings.autoTimer&&last)startTimer()},
+  bagEditOpen:()=>openSheet({type:'bag',edit:true}),
+  bagOpen:()=>openSheet({type:'bag',edit:false}),
+  bagTog:el=>{const a=new Set(bagDone(st.date)),id=el.dataset.id;a.has(id)?a.delete(id):a.add(id);D.bag.done[st.date]=[...a];
+    const keep=Object.keys(D.bag.done).sort().slice(-14);for(const k of Object.keys(D.bag.done))if(!keep.includes(k))delete D.bag.done[k];
+    save();renderSheet();render();if(a.size===D.bag.items.length&&a.size)toast('持ち物そろいました')},
+  bagClear:()=>{D.bag.done[st.date]=[];save();renderSheet();render()},
+  bagEdit:()=>{st.sheet.edit=!st.sheet.edit;renderSheet();if(st.sheet.edit)setTimeout(()=>$('#bagNew')?.focus(),50);else render()},
+  bagDel:el=>{D.bag.items=D.bag.items.filter(i=>i.id!==el.dataset.id);save();renderSheet()},
+  bagMove:el=>{const a=D.bag.items,i=a.findIndex(x=>x.id===el.dataset.id),j=i+ +el.dataset.n;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();renderSheet()},
   feel:el=>{const en=findEnt(el.dataset.id);en.feel=en.feel===el.dataset.v?'':el.dataset.v;save();render()},
   pain:el=>{const en=findEnt(el.dataset.id);en.pain=!en.pain;save();render()},
   chk:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];const i=+el.dataset.i;en.chk[i]=!en.chk[i];save();render()},
@@ -1515,6 +1564,7 @@ document.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTo
 document.addEventListener('paste',ev=>{if(ev.target.id!=='menuPaste'||!ev.clipboardData)return;const html=ev.clipboardData.getData('text/html'),text=ev.clipboardData.getData('text/plain');if(!html&&!text)return;ev.preventDefault();runMenuParse(text||new DOMParser().parseFromString(html,'text/html').body.textContent,html)});
 document.addEventListener('submit',async ev=>{
   const f=ev.target;ev.preventDefault();
+  if(f.id==='bagForm'){const v=$('#bagNew').value.trim();if(v){D.bag.items.push({id:uid(),name:v});save();renderSheet();setTimeout(()=>$('#bagNew')?.focus(),30)}return}
   if(f.id==='loginForm'){
     const btn=$('#lgBtn');btn.disabled=true;btn.textContent='ログイン中…';st.lastEmail=$('#lgEmail').value.trim();
     let err;try{err=await login(st.lastEmail,$('#lgPass').value)}catch(e){err=e instanceof NetErr?'接続できません。電波と接続先の設定を確認してください':String(e.message||e)}
