@@ -301,6 +301,38 @@ select.plain.menu-part{width:auto;min-width:120px;height:36px;font-size:14px;pad
 .bag-item[aria-pressed="true"]{background:var(--good-soft);border-color:var(--good)}
 .bag-item[aria-pressed="true"] .bx{background:var(--good);border-color:var(--good)}
 #bagForm .grow{flex:1;min-width:0}
+.supp{margin-bottom:10px;padding:12px 14px}
+.supp.done{box-shadow:inset 0 0 0 1px var(--good)}
+.supp-head{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.supp-head .grow{flex:1}
+.supp-row{display:flex;align-items:center;gap:8px;padding-block:6px}
+.supp-row+.supp-row{border-top:1px solid var(--line)}
+.supp-row .grow{flex:1;min-width:0;overflow-wrap:anywhere}
+.sbtn{width:40px;height:40px;border-radius:10px;background:var(--surface-2);font-size:20px;font-weight:700;color:var(--ink-2)}
+.sbtn.plus{background:var(--accent);color:var(--accent-ink)}
+.sbtn:disabled{opacity:.35}
+.cnt{min-width:48px;text-align:center;font-size:22px;font-weight:700}
+.cnt small{font-size:14px;color:var(--ink-2)}
+.cnt.ok{color:var(--good)}.cnt.ok small{color:var(--good)}
+.supp-grid-wrap{overflow-x:auto;background:var(--surface);border-radius:12px;box-shadow:var(--shadow)}
+.supp-grid{border-collapse:collapse;width:100%;font-size:13px}
+.supp-grid th,.supp-grid td{padding:7px 3px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+.supp-grid thead th{font-size:12px;color:var(--ink-2);font-weight:600}
+.supp-grid thead th span{font-size:10.5px}
+.supp-grid thead th.cur{color:var(--accent)}
+.supp-grid tbody th{text-align:left;font-weight:700;white-space:normal;min-width:84px;overflow-wrap:anywhere}
+.supp-grid td{font-size:16px;color:var(--ink-3)}
+.supp-grid td.ok{color:var(--good);font-weight:700}
+.supp-grid td.part{color:var(--warn);font-weight:700}
+.set .sdone{width:26px;height:34px;border-radius:9px;border:1.5px solid var(--line);background:var(--surface);font-family:var(--f-num);font-weight:700;font-size:16px;color:var(--ink-2);padding:0}
+.set .sdone.on{background:var(--good);border-color:var(--good);color:#fff}
+.prog{font-size:17px;font-weight:700;color:var(--ink-2)}.prog.ok{color:var(--good)}
+.entry.done{border-top-color:var(--good)}
+.entry.done:not(.open){padding-bottom:12px;opacity:.88}
+.done-badge{font-size:12px;font-weight:700;color:var(--good);background:var(--good-soft);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.done-sum{margin-top:6px;font-size:16px;font-weight:600;color:var(--ink-2);overflow-wrap:anywhere}
+.entry.next{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
+.next-badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--accent-ink);background:var(--accent);border-radius:99px;padding:2px 9px;margin-bottom:6px}
 /* coach report */
 .rep-ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .rep-ctl label{display:flex;flex-direction:column;gap:4px}
@@ -560,7 +592,8 @@ function applyTheme(){const t=lsGet('kintore-theme'),r=document.documentElement;
 applyTheme();
 const BAG_DEFAULT=['シューズ','靴下','タオル','AirPods','ドリンク','iPhone'];
 const BAG_OLD='シューズ,タオル,水筒,着替え,イヤホン,会員証';
-function fixData(){if(!D.bag||!Array.isArray(D.bag.items)||D.bag.items.map(i=>i.name).join(',')===BAG_OLD)D.bag={items:BAG_DEFAULT.map(n=>({id:uid(),name:n})),done:{}};if(!D.bag.done)D.bag.done={};D.body=D.body||{};if(!Array.isArray(D.programs))D.programs=[];D.settings=Object.assign({unit:'kg',rest:90,autoTimer:true},D.settings)}
+function fixData(){if(!D.supps||!Array.isArray(D.supps.items))D.supps={items:[{id:uid(),name:'プロテイン',amt:'1杯',target:2,pro:20}],log:{}};if(!D.supps.log)D.supps.log={};
+if(!D.bag||!Array.isArray(D.bag.items)||D.bag.items.map(i=>i.name).join(',')===BAG_OLD)D.bag={items:BAG_DEFAULT.map(n=>({id:uid(),name:n})),done:{}};if(!D.bag.done)D.bag.done={};D.body=D.body||{};if(!Array.isArray(D.programs))D.programs=[];D.settings=Object.assign({unit:'kg',rest:90,autoTimer:true},D.settings)}
 function sessionExpired(){
   stopTimer();stopCount();st.authOk=false;ses=null;lsSet(SES_KEY,null);st.screen='login';st.authMsg='ログインの有効期限が切れました。もう一度ログインしてください（未送信の記録は消えていません）';
   closeSheet();render();
@@ -692,6 +725,7 @@ function viewRecord(){
   else if(D.sample)h+=`<div class="banner"><span><b>サンプル記録を表示中</b> — 操作感を試すための例です</span><button class="btn ghost" style="height:32px" data-act="clearSample">消して始める</button></div>`;
   if(!isToday)h+=`<div style="margin:-2px 0 10px;text-align:center"><button class="linkish" data-act="today">今日に戻る</button></div>`;
   if(date>=todayStr())h+=bagBar(date);
+  h+=suppCard(date);
   h+=`<div class="summary"><div><span class="label">種目</span><span class="v">${s.n}</span></div><div><span class="label">セット</span><span class="v">${s.sets}</span></div><div><span class="label">ボリューム</span><span class="v">${fvol(s.vol)}<small>${U()}</small></span></div></div>`;
   if(s.parts.length)h+=`<div class="parts-row">${s.parts.map(pid=>chip(partById(pid))).join('')}</div>`;
   if(!ents.length&&D.programs.length){
@@ -708,8 +742,10 @@ function viewRecord(){
   const pEnts=ents.filter(en=>isPrep(exById(en.ex))),mEnts=ents.filter(en=>!isPrep(exById(en.ex)));
   if(pEnts.length){const tot=pEnts.reduce((a,en)=>a+(en.chk||[]).length,0),dn=pEnts.reduce((a,en)=>a+(en.chk||[]).filter(Boolean).length,0);
     h+=`<h2 class="sec-h"><span>プレパレーション</span><span class="num${dn===tot&&tot?' ok':''}">${dn}/${tot}</span></h2><div class="entries">${pEnts.map((en,i)=>prepHTML(en)).join('')}</div>`;
-    if(mEnts.length)h+=`<h2 class="sec-h"><span>トレーニング</span></h2>`}
-  h+=`<div class="entries">${mEnts.map((en,i)=>entryHTML(en,i,date)).join('')}</div>`;
+  }
+  const mDone=mEnts.filter(en=>entryDone(en,exById(en.ex))).length,nextId=(mEnts.find(en=>!entryDone(en,exById(en.ex)))||{}).id;
+  if(mEnts.length&&(pEnts.length||mEnts.length>1))h+=`<h2 class="sec-h"><span>トレーニング</span><span class="num${mDone===mEnts.length?' ok':''}">${mDone}/${mEnts.length} 完了</span></h2>`;
+  h+=`<div class="entries">${mEnts.map((en,i)=>entryHTML(en,i,date,mEnts.length>1&&en.id===nextId&&mDone>0||mEnts.length>1&&en.id===nextId&&isToday)).join('')}</div>`;
   h+=`<div class="actions">
     <button class="btn primary" data-act="openAdd">${I.plus}種目を追加</button>
     <button class="btn" data-act="copyPrev">${I.copy}前回をコピー</button>
@@ -767,10 +803,25 @@ function recHTML(ex,date){
   const wt=r.aw!=null?`${r.w?fw(r.w)+U()+' ・ ':''}アシスト ${fw(r.aw)}${U()}`:`${fw(r.w)}${U()}`;
   return `<div class="rec ${r.kind}"><div class="rec-top"><span class="rec-badge">${r.kind==='up'?(r.aw!=null?'負荷アップ':'重さアップ'):r.kind==='start'?'開始重量':'据え置き'}</span><span>今日の推奨 <b class="num">${wt}</b> × ${ex.tr}回 × ${ex.ts||3}セット</span></div><div class="rec-why">${esc(r.reason)}</div></div>`;
 }
-function entryHTML(en,idx,date){
+/* ---------- completion ---------- */
+function entryNeed(en,ex){return ex.ts||Math.max(1,en.sets.length)}
+function entryDoneCount(en){return en.sets.filter(x=>x.d).length}
+function entryDone(en,ex){
+  if(!ex)return false;
+  if(isPrep(ex)){const c=en.chk||[];return c.length>0&&c.every(Boolean)}
+  if(ex.type==='cardio'){const c=en.c||{};return !!(c.min||c.km)}
+  return en.sets.length>0&&entryDoneCount(en)>=entryNeed(en,ex);
+}
+function doneCardHTML(en,ex,p,isNext){
+  return `<article class="entry done" style="--c:${p?.color}" id="e-${en.id}"><div class="entry-head">${en.no?`<span class="no-badge num">${esc(en.no)}</span>`:''}${chip(p)}<h3>${esc(ex.name)}</h3><span class="done-badge">✓ 完了</span><button class="icon-btn" data-act="entToggle" data-id="${en.id}" aria-label="開く">${I.down}</button></div>
+    <div class="done-sum num">${ex.type==='cardio'?cardioText(en.c):esc(setsText(en.sets.filter(x=>x.d)))}${feelText(en)?` <span class="small muted">（${esc(feelText(en))}）</span>`:''}</div></article>`;
+}
+function entryHTML(en,idx,date,isNext){
   const ex=exById(en.ex);if(!ex)return '';
-  const p=partById(ex.partId),last=lastRecord(ex.id,date);
-  let h=`<article class="entry" style="--c:${p?.color}" id="e-${en.id}"><div class="entry-head">${en.no?`<span class="no-badge num">${esc(en.no)}</span>`:''}${chip(p)}<h3>${esc(ex.name)}</h3><button class="icon-btn" data-act="entryMenu" data-id="${en.id}" aria-label="メニュー">${I.more}</button></div>`;
+  const p=partById(ex.partId),last=lastRecord(ex.id,date),done=entryDone(en,ex),open=st.open&&st.open.has(en.id);
+  if(done&&!open)return doneCardHTML(en,ex,p);
+  const need=entryNeed(en,ex),dc=entryDoneCount(en);
+  let h=`<article class="entry${done?' done open':''}${isNext?' next':''}" style="--c:${p?.color}" id="e-${en.id}">${isNext?'<div class="next-badge">次はこれ</div>':''}<div class="entry-head">${en.no?`<span class="no-badge num">${esc(en.no)}</span>`:''}${chip(p)}<h3>${esc(ex.name)}</h3>${ex.type==='weight'&&en.sets.length?`<span class="prog num${done?' ok':''}">${dc}/${need}</span>`:''}${done?`<button class="icon-btn" data-act="entToggle" data-id="${en.id}" aria-label="たたむ">${I.up}</button>`:''}<button class="icon-btn" data-act="entryMenu" data-id="${en.id}" aria-label="メニュー">${I.more}</button></div>`;
   const hasT=ex.tw!=null||ex.tr!=null||ex.ts!=null;
   h+=`<div class="meta">`;
   if(ex.type==='cardio'){h+=ex.memo?`<span class="muted small">${esc(ex.memo)}</span>`:''}
@@ -793,11 +844,11 @@ function entryHTML(en,idx,date){
     let bestI=-1,bestV=0;en.sets.forEach((s,i)=>{if(s.a)return;const v=e1rm(+s.w,+s.r);if(v>bestV){bestV=v;bestI=i}});
     const isPR=prevBest>0&&bestV>prevBest+1e-9;
     h+=`<div class="sets">`;
-    if(en.sets.length)h+=`<div class="set hd"><span>#</span><span>重量(${U()})</span><span>回数</span><span>補助</span><span style="text-align:right">推定1RM</span><span></span></div>`;
+    if(en.sets.length)h+=`<div class="set hd"><span>完了</span><span>重量(${U()})</span><span>回数</span><span>補助</span><span style="text-align:right">推定1RM</span><span></span></div>`;
     en.sets.forEach((s,i)=>{
       const hit=hitTarget(ex,s);
       h+=`<div class="set${hit?' hit':''}" data-row="${en.id}-${i}">
-        <span class="no">${hit?'✓':i+1}</span>
+        <button class="no sdone${s.d?' on':''}" data-act="setDone" data-id="${en.id}" data-i="${i}" aria-pressed="${!!s.d}" aria-label="${i+1}セット目を完了にする">${s.d?'✓':i+1}</button>
         <span class="field"><input id="w-${en.id}-${i}" data-f="w" data-id="${en.id}" data-i="${i}" inputmode="decimal" value="${esc(fw(s.w))}" aria-label="${i+1}セット目の重量"></span>
         <span class="field"><input id="r-${en.id}-${i}" data-f="r" data-id="${en.id}" data-i="${i}" inputmode="numeric" value="${esc(s.r??'')}" aria-label="${i+1}セット目の回数"></span>
         <button class="tog" id="tg-${en.id}-${i}" data-act="assist" data-id="${en.id}" data-i="${i}" aria-pressed="${!!s.a}">${s.a&&s.aw?'補'+fw(s.aw):'補助'}</button>
@@ -912,7 +963,8 @@ function targetText(e){if(e.tw==null&&e.tr==null&&e.ts==null)return '目標 未�
 function viewTools(){
   const t=todayStr();
   let h=`<header class="top"><h1>ツール・設定</h1></header>`;
-  h+=`<section class="section" style="margin-top:4px"><h2>持ち物チェックリスト</h2><div class="card row" style="gap:12px;flex-wrap:wrap"><span class="grow small muted" style="min-width:180px">${D.bag.items.length?esc(D.bag.items.map(i=>i.name).join('・')):'未登録'}</span><button class="btn ghost" data-act="bagEditOpen">編集</button></div></section>`;
+  h+=`<section class="section" style="margin-top:4px"><h2>栄養・サプリ</h2><div class="card row" style="gap:12px;flex-wrap:wrap"><span class="grow small muted" style="min-width:180px">${D.supps.items.length?esc(D.supps.items.map(i=>i.name+(i.target?`（1日${i.target}回）`:'')).join('・')):'未登録'}</span><button class="btn ghost" data-act="suppOpen">履歴・編集</button></div></section>`;
+  h+=`<section class="section"><h2>持ち物チェックリスト</h2><div class="card row" style="gap:12px;flex-wrap:wrap"><span class="grow small muted" style="min-width:180px">${D.bag.items.length?esc(D.bag.items.map(i=>i.name).join('・')):'未登録'}</span><button class="btn ghost" data-act="bagEditOpen">編集</button></div></section>`;
   h+=st.demo?`<section class="section"><h2>アカウント</h2><div class="card row"><span class="grow">お試しモード（保存されません）</span><button class="btn primary" data-act="exitDemo">ログイン画面へ</button></div></section>`
    :`<section class="section" style="margin-top:4px"><h2>アカウントと同期</h2><div class="list">
     <div class="switch"><span class="muted small">ログイン中</span><span style="overflow-wrap:anywhere;text-align:right">${esc(ses?.user?.email)}</span></div>
@@ -1090,6 +1142,48 @@ function bagBar(date){
   const n=D.bag.items.length;if(!n)return '';const d=bagDone(date).length,all=d===n;
   return `<button class="bag-bar${all?' done':''}" data-act="bagOpen">${BAG_ICON}<span class="grow">持ち物チェック</span><span class="num">${d}/${n}</span>${all?'<span class="pill ok">OK</span>':''}</button>`;
 }
+/* ---------- nutrition / supplements ---------- */
+const suppN=(date,id)=>(D.supps.log[date]||{})[id]||0;
+const suppPro=date=>D.supps.items.reduce((a,i)=>a+(+i.pro||0)*suppN(date,i.id),0);
+function suppCard(date){
+  const its=D.supps.items;if(!its.length)return `<section class="supp card"><div class="supp-head"><b>栄養・サプリ</b><span class="grow"></span><button class="linkish" data-act="suppOpen">登録する</button></div></section>`;
+  const pro=suppPro(date),allOk=its.every(i=>!i.target||suppN(date,i.id)>=i.target);
+  return `<section class="supp card${allOk?' done':''}"><div class="supp-head"><b>栄養・サプリ</b>${pro?`<span class="small muted">タンパク質 <b class="num" style="font-size:16px;color:var(--ink)">${r1(pro)}</b>g</span>`:''}<span class="grow"></span><button class="linkish" data-act="suppOpen">履歴・編集</button></div>
+    ${its.map(i=>{const n=suppN(date,i.id),ok=i.target&&n>=i.target;return `<div class="supp-row"><span class="grow"><b>${esc(i.name)}</b>${i.amt?` <span class="small muted">${esc(i.amt)}</span>`:''}</span>
+      <button class="sbtn" data-act="suppDec" data-id="${i.id}" aria-label="${esc(i.name)}を1回減らす"${n?'':' disabled'}>−</button>
+      <span class="cnt num${ok?' ok':''}">${n}${i.target?`<small>/${i.target}</small>`:''}</span>
+      <button class="sbtn plus" data-act="suppInc" data-id="${i.id}" aria-label="${esc(i.name)}を1回記録">＋</button></div>`}).join('')}</section>`;
+}
+function suppStats(from,to){
+  const ds=Object.keys(D.supps.log).filter(d=>d>=from&&d<=to&&Object.values(D.supps.log[d]).some(v=>v>0)).sort();if(!ds.length)return null;
+  const start=ds[0],days=dayDiff(start,to)+1;
+  const items=D.supps.items.map(i=>{let tot=0,ok=0;for(let k=0;k<days;k++){const d=addDays(start,k),n=suppN(d,i.id);tot+=n;if(i.target&&n>=i.target)ok++}return {i,avg:tot/days,ok}});
+  let pro=0;for(let k=0;k<days;k++)pro+=suppPro(addDays(start,k));
+  return {start,days,items,pro:pro/days};
+}
+function suppLines(R){
+  const S=suppStats(R.from,R.to);if(!S)return [];
+  const L=[`■ 栄養・サプリ（${md(S.start)}〜の${S.days}日）`];
+  S.items.forEach(x=>L.push(`  ${x.i.name}：平均${r1(x.avg)}回/日${x.i.target?`（目標${x.i.target}回、達成${x.ok}/${S.days}日）`:''}`));
+  if(S.pro)L.push(`  サプリ由来のタンパク質：平均${r1(S.pro)}g/日`);
+  return L;
+}
+function sheetSupp(s){
+  if(s.edit!=null){
+    const i=s.edit?D.supps.items.find(x=>x.id===s.edit):{name:'',amt:'',target:1,pro:''};
+    return [s.edit?'サプリを編集':'サプリを追加',`<form class="form" id="suppForm"><label class="f">名前<input class="plain" id="spName" value="${esc(i.name)}" placeholder="例：クレアチン" required maxlength="20"></label>
+      <div class="grid3"><label class="f">1回の量<input class="plain" id="spAmt" value="${esc(i.amt||'')}" placeholder="例：5g" maxlength="12"></label><label class="f">1日の目標回数<input class="plain num" id="spTgt" inputmode="numeric" value="${esc(i.target??'')}" placeholder="—"></label><label class="f">タンパク質(g/回)<input class="plain num" id="spPro" inputmode="decimal" value="${esc(i.pro??'')}" placeholder="—"></label></div>
+      <p class="small muted" style="margin:0">タンパク質を入れると、1日の合計（サプリ由来）が表示されます。目標回数を空欄にすると「記録だけ」になります。</p>
+      <button class="btn primary block" type="submit">保存</button>${s.edit?`<button class="btn danger block" type="button" data-act="suppDel" data-id="${s.edit}">このサプリを削除</button>`:''}</form>`];
+  }
+  const days=[...Array(7)].map((_,k)=>addDays(st.date,k-6));
+  const its=D.supps.items;
+  const grid=its.length?`<div class="supp-grid-wrap"><table class="supp-grid"><thead><tr><th></th>${days.map(d=>`<th class="num${d===st.date?' cur':''}">${parseDate(d).getDate()}<br><span>${WD[parseDate(d).getDay()]}</span></th>`).join('')}</tr></thead><tbody>${its.map(i=>`<tr><th>${esc(i.name)}</th>${days.map(d=>{const n=suppN(d,i.id),ok=i.target&&n>=i.target;return `<td class="num${ok?' ok':n?' part':''}">${n?(ok?'✓':n):'·'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`:'';
+  return ['栄養・サプリ',`<div class="form"><div><div class="label" style="margin-bottom:6px">直近7日（${md(days[0])}〜${md(days[6])}、✓＝目標達成）</div>${grid||'<div class="empty">まだ登録がありません</div>'}</div>
+    <div><div class="label" style="margin-bottom:6px">登録しているもの</div><div class="list">${its.map((i,k)=>`<div class="li"><button class="grow" style="text-align:left" data-act="suppEdit" data-id="${i.id}"><div class="t">${esc(i.name)}</div><div class="s">${[i.amt,i.target?`1日${i.target}回`:'記録のみ',i.pro?`タンパク質${i.pro}g/回`:''].filter(Boolean).join('・')}</div></button>
+      <button class="icon-btn" style="width:32px;height:32px" data-act="suppMove" data-id="${i.id}" data-n="-1" aria-label="上へ"${k===0?' disabled':''}>${I.up}</button><button class="icon-btn" style="width:32px;height:32px" data-act="suppMove" data-id="${i.id}" data-n="1" aria-label="下へ"${k===its.length-1?' disabled':''}>${I.down}</button></div>`).join('')}
+      <button class="li" data-act="suppEdit" data-id="" style="color:var(--accent);font-weight:700">＋ サプリ・プロテインを追加</button></div></div></div>`];
+}
 function sheetBag(s){
   const done=new Set(bagDone(st.date)),n=D.bag.items.length;
   let h=`<div class="form">`;
@@ -1167,6 +1261,7 @@ function reportText(R){
   L.push(`■ 総セット数：${R.sets}　総ボリューム：${fvol(R.vol)}${U()}`);
   const pc=D.parts.filter(p=>R.partCount[p.id]).map(p=>`${p.name}${R.partCount[p.id]}回`).join('、');if(pc)L.push(`■ 部位別：${pc}`);
   if(R.bw)L.push(`■ 体重：${fw(R.bw.a)} → ${fw(R.bw.b)}${U()}（${md(R.bw.da)}→${md(R.bw.db)}）`);
+  L.push(...suppLines(R));
   if(R.days.length){L.push('■ 実施日');R.days.forEach(x=>L.push(`  ${mdw(x.d)} ${x.parts.map(p=>partById(p)?.name).join('・')}`))}
   L.push('');L.push('■ 各メニューの直近の重量・回数');
   if(!R.groups.length)L.push('  （この期間の記録はありません）');
@@ -1192,7 +1287,9 @@ function claudeText(R){
     o.recent.forEach(x=>L.push(`  ${md(x.d)} ${x.t}${x.f?`（${x.f}）`:''}${x.memo?` メモ：${x.memo}`:''}`));
     if(rc)L.push(`  アプリの推奨：${rc.aw!=null?'アシスト'+fw(rc.aw)+U():fw(rc.w)+U()}（${rc.kind==='up'?'アップ':rc.kind==='start'?'開始':'据え置き'}）`);
   })});
-  L.push('','この内容から、次回の各種目の重量（と回数）を提案してください。違和感がある種目は注意点も。');
+  const sl=suppLines(R);if(sl.length)L.push('',...sl);
+  if(R.bw)L.push(`■ 体重：${fw(R.bw.a)} → ${fw(R.bw.b)}${U()}`);
+  L.push('','この内容から、次回の各種目の重量（と回数）を提案してください。違和感がある種目は注意点も。栄養面で気になる点があれば一言ください。');
   return L.filter((x,i)=>x!==''||i>0).join('\n').replace(/\n{3,}/g,'\n\n');
 }
 function sheetReport(s){
@@ -1227,8 +1324,9 @@ function renderSheet(){
   const host=$('#sheethost');const s=st.sheet;
   if(!s){host.innerHTML='';document.body.style.overflow='';return}
   document.body.style.overflow='hidden';
-  const f={add:sheetAdd,copy:sheetCopy,exEdit:sheetEx,partEdit:sheetPart,entryMenu:sheetEntryMenu,confirm:sheetConfirm,exportF:sheetExport,share:sheetShare,import:sheetImport,conflict:sheetConflict,report:sheetReport,bag:sheetBag,menuImport:sheetMenuImport,program:sheetProgram,programPick:sheetProgramPick}[s.type];
+  const f={add:sheetAdd,copy:sheetCopy,exEdit:sheetEx,partEdit:sheetPart,entryMenu:sheetEntryMenu,confirm:sheetConfirm,exportF:sheetExport,share:sheetShare,import:sheetImport,conflict:sheetConflict,report:sheetReport,bag:sheetBag,supp:sheetSupp,menuImport:sheetMenuImport,program:sheetProgram,programPick:sheetProgramPick}[s.type];
   const [title,body]=f(s);
+  setTimeout(()=>{const w=$('.supp-grid-wrap');if(w)w.scrollLeft=w.scrollWidth},0);
   host.innerHTML=`<div class="scrim" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="icon-btn" data-act="closeSheet" aria-label="閉じる">${I.x}</button></div>${body}</div>`;
 }
 function sheetAdd(s){
@@ -1401,7 +1499,7 @@ async function shareDay(){
 /* ---------- actions ---------- */
 const A={
   go:el=>{st.view=el.dataset.v;closeSheet();window.scrollTo(0,0);render()},
-  day:el=>{st.date=addDays(st.date,+el.dataset.n);render()},
+  day:el=>{st.open=null;st.date=addDays(st.date,+el.dataset.n);render()},
   today:()=>{st.date=todayStr();render()},
   calM:el=>{const [y,m]=st.cal.split('-').map(Number);const d=new Date(y,m-1+ +el.dataset.n,1);st.cal=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;render()},
   calDay:el=>{st.date=el.dataset.d;st.view='record';window.scrollTo(0,0);render()},
@@ -1414,6 +1512,12 @@ const A={
   addSet:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const last=en.sets.at(-1);let s;
     if(last){s={w:last.w,r:last.r,a:false};if(last.a&&last.aw!==''&&last.aw!=null){s.a=true;s.aw=last.aw}}else if(recommend(ex,st.date)){const r=recommend(ex,st.date);s=r.aw!=null?{w:r.w||0,r:ex.tr,a:true,aw:r.aw}:{w:r.w,r:ex.tr,a:false}}else if(ex.tw!=null||ex.tr!=null)s={w:ex.tw??'',r:ex.tr??'',a:false};else{const lr=lastRecord(ex.id,st.date);s=lr&&lr.en.sets[0]?{w:lr.en.sets[0].w,r:lr.en.sets[0].r,a:false}:{w:'',r:'',a:false}}
     en.sets.push(s);save();render();if(D.settings.autoTimer&&last)startTimer()},
+  suppOpen:()=>openSheet({type:'supp'}),
+  suppInc:el=>{const L=D.supps.log[st.date]=D.supps.log[st.date]||{};L[el.dataset.id]=(L[el.dataset.id]||0)+1;save();render();const i=D.supps.items.find(x=>x.id===el.dataset.id);if(i&&i.target&&L[i.id]===i.target)toast(`${i.name}：今日の目標達成`)},
+  suppDec:el=>{const L=D.supps.log[st.date];if(!L||!L[el.dataset.id])return;L[el.dataset.id]--;if(!L[el.dataset.id])delete L[el.dataset.id];if(!Object.keys(L).length)delete D.supps.log[st.date];save();render()},
+  suppEdit:el=>{st.sheet={type:'supp',edit:el.dataset.id||''};renderSheet()},
+  suppDel:el=>{const i=D.supps.items.find(x=>x.id===el.dataset.id);confirmSheet('削除しますか？',`「${esc(i.name)}」を削除します。これまでの記録も表示されなくなります。`,'削除する',()=>{D.supps.items=D.supps.items.filter(x=>x.id!==i.id);save();render();openSheet({type:'supp'})})},
+  suppMove:el=>{const a=D.supps.items,i=a.findIndex(x=>x.id===el.dataset.id),j=i+ +el.dataset.n;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render();renderSheet()},
   bagEditOpen:()=>openSheet({type:'bag',edit:true}),
   bagOpen:()=>openSheet({type:'bag',edit:false}),
   bagTog:el=>{const a=new Set(bagDone(st.date)),id=el.dataset.id;a.has(id)?a.delete(id):a.add(id);D.bag.done[st.date]=[...a];
@@ -1427,11 +1531,17 @@ const A={
   pain:el=>{const en=findEnt(el.dataset.id);en.pain=!en.pain;save();render()},
   chk:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];const i=+el.dataset.i;en.chk[i]=!en.chk[i];save();render()},
   chkAdd:el=>{const en=findEnt(el.dataset.id);en.chk=en.chk||[false];en.chk.push(false);save();render()},
+  setDone:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex),s=en.sets[+el.dataset.i];const was=entryDone(en,ex);s.d=!s.d;
+    if(s.d&&(s.r===''||s.r==null)&&ex.tr!=null)s.r=ex.tr;
+    save();const now=entryDone(en,ex);render();
+    if(s.d&&D.settings.autoTimer)startTimer();
+    if(now&&!was)toast(`${ex.name} 完了`)},
+  entToggle:el=>{st.open=st.open||new Set();const id=el.dataset.id;st.open.has(id)?st.open.delete(id):st.open.add(id);render()},
   delSet:el=>{const en=findEnt(el.dataset.id);en.sets.splice(+el.dataset.i,1);save();render()},
   assist:el=>{const en=findEnt(el.dataset.id);const s=en.sets[+el.dataset.i];s.a=!s.a;save();render()},
-  fillRec:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex),r=recommend(ex,st.date);if(!r)return;const n=Math.max(ex.ts||3,en.sets.length);
-    for(let i=0;i<n;i++){const o=en.sets[i]||{};en.sets[i]=r.aw!=null?{w:r.w||0,r:o.r!==''&&o.r!=null&&en.sets[i]?o.r:ex.tr,a:true,aw:r.aw}:{w:r.w,r:o.r!==''&&o.r!=null&&en.sets[i]?o.r:ex.tr,a:false}}save();render()},
-  fillTarget:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const n=Math.max(ex.ts||1,en.sets.length);for(let i=0;i<n;i++){en.sets[i]={w:ex.tw??en.sets[i]?.w??'',r:ex.tr??en.sets[i]?.r??'',a:en.sets[i]?.a||false}}save();render()},
+  fillRec:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex),r=recommend(ex,st.date);if(!r)return;const n=Math.max(ex.ts||3,en.sets.length);const keepD=en.sets.map(x=>x.d);
+    for(let i=0;i<n;i++){const o=en.sets[i]||{};en.sets[i]=r.aw!=null?{w:r.w||0,r:o.r!==''&&o.r!=null&&en.sets[i]?o.r:ex.tr,a:true,aw:r.aw}:{w:r.w,r:o.r!==''&&o.r!=null&&en.sets[i]?o.r:ex.tr,a:false}}en.sets.forEach((x,i)=>{if(keepD[i])x.d=true});save();render()},
+  fillTarget:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);const n=Math.max(ex.ts||1,en.sets.length);for(let i=0;i<n;i++){en.sets[i]={w:ex.tw??en.sets[i]?.w??'',r:ex.tr??en.sets[i]?.r??'',a:en.sets[i]?.a||false,d:en.sets[i]?.d||false}}save();render()},
   entryMenu:el=>openSheet({type:'entryMenu',id:el.dataset.id}),
   moveEnt:el=>{const e=D.logs[st.date].e,i=e.findIndex(x=>x.id===el.dataset.id),j=i+ +el.dataset.n;if(j<0||j>=e.length)return;[e[i],e[j]]=[e[j],e[i]];save();closeSheet();render()},
   delEnt:el=>{const en=findEnt(el.dataset.id),ex=exById(en.ex);confirmSheet('記録を削除しますか？',`${md(st.date)} の「${esc(ex?.name)}」（${en.sets.length}セット）を削除します。`,'削除する',()=>{const d=D.logs[st.date];d.e=d.e.filter(x=>x.id!==en.id);cleanDay(st.date);save();closeSheet();render()})},
@@ -1533,7 +1643,7 @@ document.addEventListener('input',ev=>{
   const el=ev.target,f=el.dataset.f;if(!f)return;
   if(f==='aw'){const en=findEnt(el.dataset.id),i=+el.dataset.i,s=en.sets[i];s.aw=toKg(el.value);save();const tg=$('#tg-'+en.id+'-'+i);if(tg)tg.textContent=s.aw!==''&&s.aw!=null&&+s.aw?'補'+fw(s.aw):'補助';return}
   if(f==='w'||f==='r'){const en=findEnt(el.dataset.id),i=+el.dataset.i,s=en.sets[i];if(f==='w')s.w=toKg(el.value);else{const n=parseInt(el.value);s.r=isNaN(n)?'':n}save();
-    const ex=exById(en.ex),row=el.closest('.set');const hit=hitTarget(ex,s);row.classList.toggle('hit',hit);row.querySelector('.no').textContent=hit?'✓':i+1;const c=$('#rm-'+en.id+'-'+i);if(c)c.innerHTML=rmCell(s,false);updSummary()}
+    const ex=exById(en.ex),row=el.closest('.set');const hit=hitTarget(ex,s);row.classList.toggle('hit',hit);const c=$('#rm-'+en.id+'-'+i);if(c)c.innerHTML=rmCell(s,false);updSummary()}
   else if(f==='c'){const en=findEnt(el.dataset.id);en.c=en.c||{};const n=parseFloat(el.value);en.c[el.dataset.k]=isNaN(n)?'':n;save()}
   else if(f==='emem'){findEnt(el.dataset.id).memo=el.value;save()}
   else if(f==='dmem'){const d=getDay(st.date,true);d.memo=el.value;cleanDay(st.date);save()}
@@ -1564,6 +1674,10 @@ document.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTo
 document.addEventListener('paste',ev=>{if(ev.target.id!=='menuPaste'||!ev.clipboardData)return;const html=ev.clipboardData.getData('text/html'),text=ev.clipboardData.getData('text/plain');if(!html&&!text)return;ev.preventDefault();runMenuParse(text||new DOMParser().parseFromString(html,'text/html').body.textContent,html)});
 document.addEventListener('submit',async ev=>{
   const f=ev.target;ev.preventDefault();
+  if(f.id==='suppForm'){const name=$('#spName').value.trim();if(!name)return;const t=parseInt($('#spTgt').value),pr=parseFloat($('#spPro').value);
+    const v={name,amt:$('#spAmt').value.trim(),target:isNaN(t)||t<1?null:t,pro:isNaN(pr)?null:pr};
+    if(st.sheet.edit)Object.assign(D.supps.items.find(x=>x.id===st.sheet.edit),v);else D.supps.items.push({id:uid(),...v});
+    save();render();st.sheet={type:'supp'};renderSheet();toast('保存しました');return}
   if(f.id==='bagForm'){const v=$('#bagNew').value.trim();if(v){D.bag.items.push({id:uid(),name:v});save();renderSheet();setTimeout(()=>$('#bagNew')?.focus(),30)}return}
   if(f.id==='loginForm'){
     const btn=$('#lgBtn');btn.disabled=true;btn.textContent='ログイン中…';st.lastEmail=$('#lgEmail').value.trim();
